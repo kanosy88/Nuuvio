@@ -153,6 +153,7 @@ object LetterboxdRepository {
             var username: String? = null
             var identity = LetterboxdProbeResult.Failed
             var error: LetterboxdError? = null
+            var httpStatus: Int? = null
             try {
                 username = client.fetchSession().username
                 identity = LetterboxdProbeResult.Ok
@@ -160,8 +161,10 @@ object LetterboxdRepository {
                 throw failure
             } catch (failure: LetterboxdException) {
                 error = failure.error
+                httpStatus = failure.status
+                log.w { "Letterboxd connection test failed: ${failure.error}${failure.status?.let { " (HTTP $it)" }.orEmpty()}" }
                 identity = when (failure.error) {
-                    LetterboxdError.AuthExpired -> LetterboxdProbeResult.Unauthorized
+                    LetterboxdError.AuthExpired, LetterboxdError.SessionCookieMissing -> LetterboxdProbeResult.Unauthorized
                     LetterboxdError.CloudflareChallenge -> LetterboxdProbeResult.CloudflareChallenge
                     else -> LetterboxdProbeResult.Failed
                 }
@@ -177,6 +180,7 @@ object LetterboxdRepository {
                 customUserAgent = mutableState.value.userAgent.isNotBlank(),
                 error = error,
                 checkedAtEpochMs = now,
+                httpStatus = httpStatus,
             )
             mutableState.update {
                 it.copy(

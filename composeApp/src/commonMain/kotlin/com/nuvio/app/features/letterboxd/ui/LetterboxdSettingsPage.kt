@@ -104,6 +104,7 @@ internal fun letterboxdIntegrationRow(isTablet: Boolean, onClick: () -> Unit) {
 internal fun LetterboxdError.messageResource(): StringResource = when (this) {
     LetterboxdError.NotConnected -> Res.string.letterboxd_error_not_connected
     LetterboxdError.AuthExpired -> Res.string.letterboxd_error_auth_expired
+    LetterboxdError.SessionCookieMissing -> Res.string.letterboxd_error_session_cookie_missing
     LetterboxdError.CloudflareChallenge -> Res.string.letterboxd_error_cloudflare
     LetterboxdError.Rejected -> Res.string.letterboxd_error_rejected
     LetterboxdError.NotFound -> Res.string.letterboxd_error_not_found
@@ -280,8 +281,13 @@ private fun LetterboxdReportRows(report: LetterboxdConnectionReport, isTablet: B
             LetterboxdProbeResult.Skipped -> stringResource(Res.string.letterboxd_result_api_skipped) to MaterialTheme.colorScheme.onSurfaceVariant
         }
         ResultLine(api.first, api.second)
-        if (report.identity == LetterboxdProbeResult.Failed) {
+        if (report.identity == LetterboxdProbeResult.Failed || report.identity == LetterboxdProbeResult.Unauthorized) {
             report.error?.let { ResultLine(stringResource(it.messageResource()), MaterialTheme.colorScheme.error) }
+        }
+        if (report.identity != LetterboxdProbeResult.Ok) {
+            report.httpStatus?.takeIf { it != 200 }?.let {
+                ResultLine(stringResource(Res.string.letterboxd_result_http_status, it.toString()), MaterialTheme.colorScheme.error)
+            }
         }
 
         val warnings = buildList {

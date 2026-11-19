@@ -28,21 +28,53 @@ internal object LetterboxdParsers {
             body.contains("window._cf_chl_opt")
     }
 
-    /** `person = { username: "x", loggedIn: true … }` block present on every full page. */
-    fun parseSignedInUsername(html: String): String? {
-        val match = Regex("""person\s*=\s*\{\s*username:\s*"([^"]*)"\s*,\s*loggedIn:\s*(true|false)""").find(html)
-            ?: return null
-        val username = match.groupValues[1]
-        val loggedIn = match.groupValues[2] == "true"
-        return username.takeIf { loggedIn && it.isNotBlank() }
+    /**
+     * Who the page was rendered for. Every full page carries a CACHED guest literal
+     * (`person = { username: "", loggedIn: false, role: "guest" … }`), then, for a signed-in member, an inline
+     * script that overrides it: `supermodelCSRF = '…'; analytic_params['user_type'] = 'Member';
+     * person.username = "x"; person.loggedIn = true; person.profileLink = "/x/"; person.role = "member"; …`.
+     * The literal is only a default: the injected assignments win. Several markers are combined so a single
+     * markup change doesn't flip a valid session to "guest"; contradictory markers give [LetterboxdPageSession.State.Unknown].
+     */
+    fun detectSession(html: String): LetterboxdPageSession {
+        fun last(pattern: String) = Regex(pattern).findAll(html).lastOrNull()?.groupValues?.get(1)
+
+        val literal = Regex("""person\s*=\s*\{\s*username:\s*"([^"]*)"\s*,\s*loggedIn:\s*(true|false)""").findAll(html).lastOrNull()
+        val literalLoggedIn = literal?.groupValues?.get(2)?.toBooleanStrict()
+        val literalUsername = literal?.groupValues?.get(1)
+
+        val loggedIn = last("""person\.loggedIn\s*=\s*(true|false)""")?.toBooleanStrict()
+        val username = last("""person\.username\s*=\s*"([^"]*)"""")
+        val profileLink = last("""person\.profileLink\s*=\s*"/([^"/]+)/"""")
+        val role = last("""person\.role\s*=\s*"(\w+)"""")?.lowercase()
+        val userType = last("""analytic_params\[\s*['"]user_type['"]\s*]\s*=\s*['"](\w+)['"]""")?.lowercase()
+
+        val name = listOf(username, profileLink, literalUsername).firstOrNull { !it.isNullOrBlank() }
+        val member = userType == "member" || role == "member"
+        val guest = userType == "visitor" || role == "guest"
+        val state = when {
+            loggedIn == true -> LetterboxdPageSession.State.SignedIn
+            loggedIn == false -> if (member) LetterboxdPageSession.State.Unknown else LetterboxdPageSession.State.Guest
+            member && guest -> LetterboxdPageSession.State.Unknown
+            member -> LetterboxdPageSession.State.SignedIn
+            guest -> LetterboxdPageSession.State.Guest
+            literalLoggedIn == true -> LetterboxdPageSession.State.SignedIn
+            literalLoggedIn == false -> LetterboxdPageSession.State.Guest
+            else -> LetterboxdPageSession.State.Unknown
+        }
+        return LetterboxdPageSession(state, name.takeIf { state == LetterboxdPageSession.State.SignedIn })
     }
 
-    /** True when the page contains the guest `person` block (cookies not accepted). */
-    fun isGuestPage(html: String): Boolean =
-        Regex("""person\s*=\s*\{\s*username:\s*""\s*,\s*loggedIn:\s*false""").containsMatchIn(html)
+    /** Username of the signed-in member, null for a guest page or when it can't be determined. */
+    fun parseSignedInUsername(html: String): String? =
+        detectSession(html).takeIf { it.state == LetterboxdPageSession.State.SignedIn }?.username
 
+    /** True when the page was rendered for a guest (cookies sent but not accepted). */
+    fun isGuestPage(html: String): Boolean = detectSession(html).state == LetterboxdPageSession.State.Guest
+
+    /** Last non-empty `supermodelCSRF` assignment (the cached template first declares `supermodelCSRF = ""`). */
     fun parseCsrfToken(html: String): String? =
-        Regex("""supermodelCSRF\s*=\s*['"]([0-9a-fA-F]+)['"]""").find(html)?.groupValues?.get(1)
+        Regex("""supermodelCSRF\s*=\s*['"]([0-9A-Za-z]+)['"]""").findAll(html).lastOrNull()?.groupValues?.get(1)
 
     fun parseFilmPage(slug: String, html: String, lidHeader: String?): LetterboxdFilm {
         val identifier = metaContent(html, "production:identifier")?.let { raw ->

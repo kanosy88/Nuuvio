@@ -7,8 +7,11 @@ enum class LetterboxdError {
     /** No cookies saved. */
     NotConnected,
 
-    /** Session cookies are missing, invalid or expired: the user must paste fresh cookies. */
+    /** Session cookies were sent but Letterboxd rendered a guest page: expired/invalid session, paste fresh cookies. */
     AuthExpired,
+
+    /** Letterboxd rendered a guest page and no session cookie (`letterboxd.user.CURRENT` / `letterboxd.user`) was pasted. */
+    SessionCookieMissing,
 
     /** Cloudflare answered with a challenge page ("Just a moment…"). */
     CloudflareChallenge,
@@ -68,6 +71,11 @@ data class LetterboxdFilmState(
     val reviewCount: Int = 0,
     val diaryEntryCount: Int = 0,
 )
+
+/** Who a Letterboxd page was rendered for, see [LetterboxdParsers.detectSession]. */
+internal data class LetterboxdPageSession(val state: State, val username: String?) {
+    enum class State { SignedIn, Guest, Unknown }
+}
 
 data class LetterboxdSessionInfo(
     val username: String,
@@ -146,6 +154,8 @@ data class LetterboxdConnectionReport(
     val customUserAgent: Boolean,
     val error: LetterboxdError?,
     val checkedAtEpochMs: Long,
+    /** HTTP status of the failed identity check, when relevant. */
+    val httpStatus: Int? = null,
 )
 
 data class LetterboxdAccountState(

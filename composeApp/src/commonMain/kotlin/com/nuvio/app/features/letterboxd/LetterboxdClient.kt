@@ -116,23 +116,37 @@ internal class LetterboxdClient(
     // ---------------------------------------------------------------- authenticated reads
 
     /**
-     * Identity check: loads a public film page with the session cookies and reads the `person` block.
-     * Also captures the CSRF token. Throws [LetterboxdError.AuthExpired] when Letterboxd treats us as a guest.
+     * Identity check: loads a public film page with the session cookies and reads who it was rendered for
+     * (see [LetterboxdParsers.detectSession]). Also captures the CSRF token.
+     * Throws [LetterboxdError.AuthExpired] (or [LetterboxdError.SessionCookieMissing] when no session cookie was
+     * pasted) when Letterboxd treats us as a guest.
      */
     suspend fun fetchSession(): LetterboxdSessionInfo {
         val response = transport.execute(LetterboxdHttpRequest("GET", SESSION_PROBE_PATH), authenticated = true)
+        handleAuthStatus(response)
         if (response.status != 200) throw statusError(response.status)
         val token = LetterboxdParsers.parseCsrfToken(response.body)
         if (token != null) transport.setCsrfToken(token)
-        val username = LetterboxdParsers.parseSignedInUsername(response.body)
-        if (username == null) {
-            if (LetterboxdParsers.isGuestPage(response.body)) {
-                onAuthExpired()
-                throw LetterboxdException(LetterboxdError.AuthExpired)
+        val session = LetterboxdParsers.detectSession(response.body)
+        val cookies = transport.cookieSnapshot()
+        when (session.state) {
+            LetterboxdPageSession.State.SignedIn -> {
+                val username = session.username?.takeIf { it.isNotBlank() }
+                    ?: cookies[LETTERBOXD_SIGNED_IN_AS_COOKIE]?.takeIf { it.isNotBlank() }
+                    ?: throw LetterboxdException(LetterboxdError.Parse, "Signed in but username not found")
+                return LetterboxdSessionInfo(username = username, csrfToken = token ?: transport.csrfToken())
             }
-            throw LetterboxdException(LetterboxdError.Parse, "Signed-in member not found in page")
+            LetterboxdPageSession.State.Guest -> {
+                onAuthExpired()
+                val missing = cookies.keys.none { it in LETTERBOXD_SESSION_COOKIES }
+                throw LetterboxdException(
+                    if (missing) LetterboxdError.SessionCookieMissing else LetterboxdError.AuthExpired,
+                    if (missing) "No session cookie" else "Guest page",
+                )
+            }
+            LetterboxdPageSession.State.Unknown ->
+                throw LetterboxdException(LetterboxdError.Parse, "Session markers not found in page", response.status)
         }
-        return LetterboxdSessionInfo(username = username, csrfToken = token ?: transport.csrfToken())
     }
 
     /** The member's relationship with [film] (watched/liked/watchlist/rating) from the JSON API. */

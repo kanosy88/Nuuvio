@@ -8,8 +8,14 @@ import kotlinx.serialization.json.jsonPrimitive
 internal const val LETTERBOXD_CSRF_COOKIE = "com.xk72.webparts.csrf"
 internal const val LETTERBOXD_CLEARANCE_COOKIE = "cf_clearance"
 
-/** Name of the long-lived session cookie set by Letterboxd at sign-in. */
+/**
+ * Session cookies set by Letterboxd at sign-in (verified with a real session, 2026-11-19): each one alone is
+ * enough to be signed in. `letterboxd.signed.in.as` only holds the username (no auth value).
+ */
 internal const val LETTERBOXD_SESSION_COOKIE = "letterboxd.user.CURRENT"
+internal const val LETTERBOXD_LEGACY_SESSION_COOKIE = "letterboxd.user"
+internal const val LETTERBOXD_SIGNED_IN_AS_COOKIE = "letterboxd.signed.in.as"
+internal val LETTERBOXD_SESSION_COOKIES = setOf(LETTERBOXD_SESSION_COOKIE, LETTERBOXD_LEGACY_SESSION_COOKIE)
 
 /**
  * Parses cookies pasted by the user. Accepted formats:

@@ -7,6 +7,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -24,12 +25,13 @@ class LetterboxdClientTest {
     private fun response(status: Int, body: String = "", headers: Map<String, List<String>> = emptyMap()) =
         LetterboxdHttpResponse(status, headers, body)
 
-    private suspend fun client(engine: FakeEngine, onAuthExpired: suspend () -> Unit = {}): LetterboxdClient {
+    private suspend fun client(
+        engine: FakeEngine,
+        cookies: Map<String, String> = linkedMapOf("letterboxd.user.CURRENT" to "session", LETTERBOXD_CSRF_COOKIE to "tok", LETTERBOXD_CLEARANCE_COOKIE to "cf"),
+        onAuthExpired: suspend () -> Unit = {},
+    ): LetterboxdClient {
         val transport = LetterboxdTransport(engine, minIntervalMs = 0)
-        transport.configure(
-            linkedMapOf("letterboxd.user.CURRENT" to "session", LETTERBOXD_CSRF_COOKIE to "tok", LETTERBOXD_CLEARANCE_COOKIE to "cf"),
-            "UA/1.0",
-        )
+        transport.configure(cookies, "UA/1.0")
         return LetterboxdClient(transport, onAuthExpired)
     }
 
@@ -112,9 +114,39 @@ class LetterboxdClientTest {
     fun guestPageMeansAuthExpired() = runTest {
         var expired = false
         val engine = FakeEngine { response(200, "person = {\n username: \"\"\n , loggedIn: false") }
-        val error = assertFailsWith<LetterboxdException> { client(engine) { expired = true }.fetchSession() }
+        val error = assertFailsWith<LetterboxdException> { client(engine, onAuthExpired = { expired = true }).fetchSession() }
         assertEquals(LetterboxdError.AuthExpired, error.error)
         assertTrue(expired)
+    }
+
+    @Test
+    fun signedInPageWithCachedGuestLiteralIsAccepted() = runTest {
+        var expired = false
+        val page = "person = {\n username: \"\"\n , loggedIn: false\n , role: \"guest\" };\n" +
+            "supermodelCSRF = 'abc123'; analytic_params['user_type'] = 'Member'; person.username = \"jane_doe\"; person.loggedIn = true;"
+        val engine = FakeEngine { response(200, page) }
+        val session = client(engine, onAuthExpired = { expired = true }).fetchSession()
+        assertEquals("jane_doe", session.username)
+        assertEquals("abc123", session.csrfToken)
+        assertFalse(expired)
+    }
+
+    @Test
+    fun guestPageWithoutSessionCookieIsReportedAsMissingCookie() = runTest {
+        val engine = FakeEngine { response(200, "person = {\n username: \"\"\n , loggedIn: false") }
+        val error = assertFailsWith<LetterboxdException> {
+            client(engine, cookies = mapOf(LETTERBOXD_CSRF_COOKIE to "tok", "useMobileSite" to "no")).fetchSession()
+        }
+        assertEquals(LetterboxdError.SessionCookieMissing, error.error)
+    }
+
+    @Test
+    fun unexpectedSessionPageIsAParseErrorNotAnExpiredSession() = runTest {
+        var expired = false
+        val engine = FakeEngine { response(200, "<html><body>maintenance</body></html>") }
+        val error = assertFailsWith<LetterboxdException> { client(engine, onAuthExpired = { expired = true }).fetchSession() }
+        assertEquals(LetterboxdError.Parse, error.error)
+        assertFalse(expired)
     }
 
     @Test
@@ -129,7 +161,7 @@ class LetterboxdClientTest {
     fun unauthorizedApiCallFlagsReconnect() = runTest {
         var expired = false
         val engine = FakeEngine { response(401) }
-        val error = assertFailsWith<LetterboxdException> { client(engine) { expired = true }.fetchMyFilmState(film) }
+        val error = assertFailsWith<LetterboxdException> { client(engine, onAuthExpired = { expired = true }).fetchMyFilmState(film) }
         assertEquals(LetterboxdError.AuthExpired, error.error)
         assertTrue(expired)
     }

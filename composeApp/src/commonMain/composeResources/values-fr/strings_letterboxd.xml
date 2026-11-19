@@ -10,7 +10,7 @@
     <string name="letterboxd_status_connected_unknown">Connecté</string>
     <string name="letterboxd_status_reconnect">Reconnexion nécessaire : votre session Letterboxd a expiré. Collez de nouveaux cookies.</string>
     <string name="letterboxd_cookies_label">Cookies</string>
-    <string name="letterboxd_cookies_help">Connectez-vous à letterboxd.com dans votre navigateur, ouvrez les outils de développement (onglet Réseau), rechargez la page, sélectionnez la requête vers letterboxd.com et copiez tout l’en-tête de requête « Cookie ». Un export JSON de Cookie-Editor ou un fichier cookies.txt fonctionne aussi. Il doit contenir letterboxd.user.CURRENT, et idéalement com.xk72.webparts.csrf et cf_clearance.</string>
+    <string name="letterboxd_cookies_help">Connectez-vous à letterboxd.com dans votre navigateur, ouvrez les outils de développement (onglet Réseau), rechargez la page, sélectionnez la requête vers letterboxd.com et copiez tout l’en-tête de requête « Cookie ». Un export JSON de Cookie-Editor ou un fichier cookies.txt fonctionne aussi. Il doit contenir le cookie de session letterboxd.user.CURRENT (ou letterboxd.user), et idéalement com.xk72.webparts.csrf et cf_clearance.</string>
     <string name="letterboxd_user_agent_label">User-Agent (facultatif)</string>
     <string name="letterboxd_user_agent_help">Collez le User-Agent exact du navigateur d’où viennent les cookies (mêmes en-têtes de requête, ou tapez navigator.userAgent dans la console). Cloudflare lie cf_clearance à ce User-Agent.</string>
     <string name="letterboxd_saved_cookies">Cookies enregistrés : %1$s</string>
@@ -37,7 +37,7 @@
     <string name="letterboxd_storage_linux">Les cookies sont stockés dans le trousseau Secret Service (secret-tool).</string>
     <string name="letterboxd_storage_file">Les cookies sont stockés dans un fichier lisible uniquement par votre compte utilisateur (aucun trousseau système disponible).</string>
     <string name="letterboxd_error_not_connected">Aucun cookie Letterboxd valide trouvé dans le texte collé.</string>
-    <string name="letterboxd_error_auth_expired">Session Letterboxd expirée ou invalide. Collez de nouveaux cookies.</string>
+    <string name="letterboxd_error_auth_expired">Letterboxd vous voit déconnecté (page invité) alors que le cookie de session a été envoyé : la session a expiré ou vous vous êtes déconnecté dans ce navigateur. Collez de nouveaux cookies.</string>
     <string name="letterboxd_error_cloudflare">Bloqué par Cloudflare. Renouvelez cf_clearance et vérifiez le User-Agent.</string>
     <string name="letterboxd_error_rejected">Letterboxd a refusé la requête.</string>
     <string name="letterboxd_error_not_found">Introuvable sur Letterboxd.</string>
@@ -46,4 +46,6 @@
     <string name="letterboxd_error_server">Erreur Letterboxd. Réessayez plus tard.</string>
     <string name="letterboxd_error_parse">Réponse inattendue de Letterboxd.</string>
     <string name="letterboxd_error_storage">Impossible d’enregistrer les cookies de façon sécurisée.</string>
+    <string name="letterboxd_error_session_cookie_missing">Letterboxd vous voit déconnecté : les cookies collés ne contiennent pas de cookie de session (letterboxd.user.CURRENT ou letterboxd.user). Copiez l’en-tête Cookie complet depuis un onglet letterboxd.com connecté.</string>
+    <string name="letterboxd_result_http_status">Letterboxd a répondu HTTP %1$s.</string>
 </resources>

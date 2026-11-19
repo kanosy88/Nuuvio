@@ -7,6 +7,37 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class LetterboxdParsersTest {
+    /**
+     * Real excerpt of /film/the-matrix/ fetched with a signed-in member's cookies (2026-11-19), anonymised
+     * (username, CSRF token, member LID and avatar URL replaced, long lists trimmed). The cached guest literal
+     * comes first, the per-member overrides are injected later in the page.
+     */
+    private val signedInFilmPage = "\t\t\t\treturn policies[sharePolicy]\n" +
+        "\t\t\t},\n" +
+        "\t\t\tperson = {\n" +
+        "\t\t\t\tusername: \"\"\n" +
+        "\t\t\t\t, loggedIn: false\n" +
+        "\t\t\t\t\n" +
+        "\t\t\t\t, showAds: true\n" +
+        "\t\t\t\t, role: \"guest\"\n" +
+        "\t\t\t\t, canBulkAddToLists: false\n" +
+        "\t\t\t\t, blockedMembers: []\n" +
+        "\t\t\t\t, validated: null\n" +
+        "\t\t\t\t, trusted: false\n" +
+        "\t\t\t\t, getCustomPoster : function(uid) { return null; }\n" +
+        "\t\t\t},\n" +
+        "\t\t\tdisableAds = false,\n" +
+        "\t\t\tanalytic_params = {};\n" +
+        "\t\t\n" +
+        "\t\t\n" +
+        "supermodelCSRF = '0123456789abcdef0123'; geolocation.country = 'US'; analytic_params['user_type'] = 'Member'; " +
+        "analytic_params['member_type'] = 'FREE'; person.username = \"jane_doe\"; person.lid = \"AbCd1\"; " +
+        "person.loggedIn = true; person.profileLink = \"/jane_doe/\"; person.optimisedPosters = false; " +
+        "person.role = \"member\"; person.moderator = false; person.showAds = true; person.canUpgradeToPro = true; " +
+        "person.blockedMembers = []; person.validated = true; person.trusted = true; " +
+        "person.avatarURL16 = \"https://a.ltrbxd.com/resized/avatar/upload/0/0/0/0/shard/avtr-0-48-0-48-crop.jpg?v=0000000000\"; " +
+        "person.posterMode = \"All\";\n" +
+        "\t<script>\n\tASAP(function() {\n\t\tif ( \$.cookie(\"letterboxd.signed.in.as\") === person.username ) {\n"
     private val filmPage = """
         <html><head>
         <meta property="og:title" content="The Matrix (1999)">
@@ -54,6 +85,33 @@ class LetterboxdParsersTest {
         val signedIn = "person = {\n\t\t\t\tusername: \"jane_doe\"\n\t\t\t\t, loggedIn: true\n"
         assertEquals("jane_doe", LetterboxdParsers.parseSignedInUsername(signedIn))
         assertFalse(LetterboxdParsers.isGuestPage(signedIn))
+    }
+
+    @Test
+    fun signedInPageOverridesCachedGuestLiteral() {
+        val session = LetterboxdParsers.detectSession(signedInFilmPage)
+        assertEquals(LetterboxdPageSession.State.SignedIn, session.state)
+        assertEquals("jane_doe", session.username)
+        assertEquals("jane_doe", LetterboxdParsers.parseSignedInUsername(signedInFilmPage))
+        assertFalse(LetterboxdParsers.isGuestPage(signedInFilmPage))
+        assertEquals("0123456789abcdef0123", LetterboxdParsers.parseCsrfToken(signedInFilmPage))
+    }
+
+    @Test
+    fun sessionDetectionUsesSeveralMarkers() {
+        // Only user_type + profileLink left (person.username / loggedIn assignments renamed): still signed in.
+        val partial = signedInFilmPage.replace("person.username =", "person.name =").replace("person.loggedIn = true;", "")
+        assertEquals(LetterboxdPageSession(LetterboxdPageSession.State.SignedIn, "jane_doe"), LetterboxdParsers.detectSession(partial))
+        // Contradictory markers are not reported as an expired session.
+        val contradictory = signedInFilmPage.replace("person.loggedIn = true", "person.loggedIn = false")
+        assertEquals(LetterboxdPageSession.State.Unknown, LetterboxdParsers.detectSession(contradictory).state)
+        // No marker at all (markup changed / unexpected page).
+        assertEquals(LetterboxdPageSession.State.Unknown, LetterboxdParsers.detectSession("<html></html>").state)
+        // Guest page: cached literal, empty CSRF placeholder, Visitor analytics.
+        val guest = "supermodelCSRF = \"\", person = {\n username: \"\"\n , loggedIn: false\n , role: \"guest\" };" +
+            " supermodelCSRF = 'abc123'; analytic_params['user_type'] = 'Visitor';"
+        assertEquals(LetterboxdPageSession.State.Guest, LetterboxdParsers.detectSession(guest).state)
+        assertEquals("abc123", LetterboxdParsers.parseCsrfToken(guest))
     }
 
     @Test
