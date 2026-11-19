@@ -75,6 +75,8 @@ import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.home.HomeCatalogSettingsItem
 import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.buildAddonCatalogRefreshSignature
+import com.nuvio.app.features.letterboxd.ui.letterboxdSettingsContent
+import com.nuvio.app.features.letterboxd.ui.letterboxdSettingsEntry
 import com.nuvio.app.features.mdblist.MdbListSettings
 import com.nuvio.app.features.mdblist.MdbListSettingsRepository
 import com.nuvio.app.features.mdblist.MdbListTracker
@@ -782,6 +784,7 @@ private fun MobileSettingsScreen(
                     onTmdbClick = { onPageChange(SettingsPage.TmdbEnrichment) },
                     onMdbListClick = { onPageChange(SettingsPage.MdbListRatings) },
                     onDebridClick = { onPageChange(SettingsPage.Debrid) },
+                    onLetterboxdClick = letterboxdSettingsEntry { onPageChange(SettingsPage.Letterboxd) },
                 )
                 SettingsPage.TmdbEnrichment -> tmdbSettingsContent(
                     isTablet = false,
@@ -791,6 +794,7 @@ private fun MobileSettingsScreen(
                     isTablet = false,
                     settings = mdbListSettings,
                 )
+                SettingsPage.Letterboxd -> letterboxdSettingsContent(isTablet = false)
                 SettingsPage.Debrid -> debridSettingsContent(
                     isTablet = false,
                     settings = debridSettings,
@@ -1194,6 +1198,7 @@ private fun TabletSettingsScreen(
                             onTmdbClick = { onPageChange(SettingsPage.TmdbEnrichment) },
                             onMdbListClick = { onPageChange(SettingsPage.MdbListRatings) },
                             onDebridClick = { onPageChange(SettingsPage.Debrid) },
+                            onLetterboxdClick = letterboxdSettingsEntry { onPageChange(SettingsPage.Letterboxd) },
                         )
                         SettingsPage.TmdbEnrichment -> tmdbSettingsContent(
                             isTablet = true,
@@ -1203,6 +1208,7 @@ private fun TabletSettingsScreen(
                             isTablet = true,
                             settings = mdbListSettings,
                         )
+                        SettingsPage.Letterboxd -> letterboxdSettingsContent(isTablet = true)
                         SettingsPage.Debrid -> debridSettingsContent(
                             isTablet = true,
                             settings = debridSettings,

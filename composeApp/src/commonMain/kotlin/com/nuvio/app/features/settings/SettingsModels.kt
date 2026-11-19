@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.letterboxd_settings_title
 import nuvio.composeapp.generated.resources.compose_settings_category_about
 import nuvio.composeapp.generated.resources.compose_settings_category_general
 import nuvio.composeapp.generated.resources.compose_settings_page_account
@@ -256,6 +257,11 @@ internal enum class SettingsPage(
         category = SettingsCategory.Services,
         parentPage = Integrations,
     ),
+    Letterboxd(
+        titleRes = Res.string.letterboxd_settings_title,
+        category = SettingsCategory.Services,
+        parentPage = Integrations,
+    ),
     TraktAuthentication(
         titleRes = Res.string.compose_settings_page_tracking,
         category = SettingsCategory.Services,
@@ -302,6 +308,7 @@ internal val SettingsPage.icon: ImageVector
         SettingsPage.TmdbEnrichment -> Icons.Default.Link
         SettingsPage.MdbListRatings -> Icons.Default.Link
         SettingsPage.Debrid -> Icons.Default.Link
+        SettingsPage.Letterboxd -> Icons.Default.Link
         SettingsPage.TraktAuthentication -> Icons.Default.Sync
         SettingsPage.PlaybackPlayer -> Icons.Default.SmartDisplay
         SettingsPage.PlaybackStreamSelection -> Icons.AutoMirrored.Filled.PlaylistPlay

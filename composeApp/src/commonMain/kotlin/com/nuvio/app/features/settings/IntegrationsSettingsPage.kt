@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.lazy.LazyListScope
+import com.nuvio.app.features.letterboxd.ui.letterboxdIntegrationRow
 import nuvio.composeapp.generated.resources.compose_settings_page_debrid
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.compose_settings_page_mdblist_ratings
@@ -16,6 +17,7 @@ internal fun LazyListScope.integrationsContent(
     onTmdbClick: () -> Unit,
     onMdbListClick: () -> Unit,
     onDebridClick: () -> Unit,
+    onLetterboxdClick: (() -> Unit)? = null,
 ) {
     item {
         SettingsSection(
@@ -45,6 +47,7 @@ internal fun LazyListScope.integrationsContent(
                     isTablet = isTablet,
                     onClick = onDebridClick,
                 )
+                if (onLetterboxdClick != null) letterboxdIntegrationRow(isTablet, onLetterboxdClick)
             }
         }
     }
