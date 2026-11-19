@@ -247,6 +247,37 @@ internal object LetterboxdParsers {
                 )
             }.toList()
 
+    /**
+     * `/csi/film/<slug>/friend-activity/?esiAllowUser=true` (verified Nov 2026, signed in): one
+     * `<li class="listitem -rated|-watched|-watchlisted …">` per followed member, with
+     * `<a href="/<member>/…" title="Rated by X">`, the avatar `<img src alt="Display name">` and, when rated,
+     * `<span class="rating -nano rated-7">`. Empty for guests or when no friend interacted with the film.
+     */
+    fun parseFriendActivity(html: String): List<LetterboxdFriendActivity> =
+        Regex("""<li[^>]*class="([^"]*\blistitem\b[^"]*)"[^>]*>([\s\S]*?)</li>""").findAll(html).mapNotNull { match ->
+            val classes = match.groupValues[1]
+            val row = match.groupValues[2]
+            val username = Regex("""<a[^>]*href="/([A-Za-z0-9_]+)/""").find(row)?.groupValues?.get(1) ?: return@mapNotNull null
+            val title = Regex("""<a[^>]*title="([^"]*)"""").find(row)?.groupValues?.get(1)?.let(::decodeEntities).orEmpty()
+            val image = Regex("""<img[^>]*>""").find(row)?.value.orEmpty()
+            val displayName = Regex("""alt="([^"]*)"""").find(image)?.groupValues?.get(1)?.let(::decodeEntities)
+                ?.takeIf { it.isNotBlank() } ?: username
+            val rating = Regex("""\brated-(\d{1,2})\b""").find(row)?.groupValues?.get(1)?.toIntOrNull()
+                ?.takeIf { it in 1..10 }?.let { it / 2.0 }
+            val wantsToWatch = classes.contains("-watchlisted") ||
+                (title.contains("wants to watch", ignoreCase = true) && rating == null)
+            LetterboxdFriendActivity(
+                username = username,
+                displayName = displayName,
+                avatarUrl = Regex("""src="([^"]+)"""").find(image)?.groupValues?.get(1)?.let(::decodeEntities),
+                rating = rating,
+                liked = classes.contains("-liked") || Regex("""class="[^"]*\b(?:like|icon-liked|has-icon icon-liked)\b""").containsMatchIn(row),
+                reviewed = classes.contains("-reviewed") || title.startsWith("Reviewed", ignoreCase = true),
+                watched = !wantsToWatch,
+                wantsToWatch = wantsToWatch,
+            )
+        }.distinctBy { it.username }.toList()
+
     /** Slug from a `/film/<slug>/` location header or URL. */
     fun slugFromFilmPath(location: String?): String? =
         location?.let { Regex("""/film/([^/?#]+)/?""").find(it)?.groupValues?.get(1) }

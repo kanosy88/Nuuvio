@@ -13,6 +13,7 @@ import com.nuvio.app.features.details.TmdbEntityBrowseScreen
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.tmdb.TmdbEntityKind
 import com.nuvio.app.features.tmdb.TmdbService
+import com.nuvio.app.features.letterboxd.ui.rememberLetterboxdSettingsOpener
 import com.nuvio.app.navigation.DetailRoute
 import com.nuvio.app.navigation.EntityBrowseRoute
 import com.nuvio.app.navigation.NuvioNavigator
@@ -122,6 +123,7 @@ internal fun DetailsDestination(
         sharedTransitionScope = sharedTransitionScope,
         animatedVisibilityScope = animatedVisibilityScope,
         modifier = Modifier.fillMaxSize(),
+        onOpenLetterboxdSettings = rememberLetterboxdSettingsOpener(navController),
     )
 }
 

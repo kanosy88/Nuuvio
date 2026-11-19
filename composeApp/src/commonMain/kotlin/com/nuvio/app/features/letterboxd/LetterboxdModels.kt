@@ -70,6 +70,40 @@ data class LetterboxdFilmState(
     val rating: Double?,
     val reviewCount: Int = 0,
     val diaryEntryCount: Int = 0,
+    /** Log entry ids (e.g. `hdhvZL`) of the member's reviews of this film, readable via `production-log-entry/{id}`. */
+    val reviewIds: List<String> = emptyList(),
+    val diaryEntryIds: List<String> = emptyList(),
+    /** ISO instant of the first "watched" mark, when known. */
+    val whenWatched: String? = null,
+)
+
+/** One of the member's log entries (diary entry and/or review), from `GET /api/v0/production-log-entry/{id}`. */
+data class LetterboxdLogEntry(
+    val id: String,
+    /** `yyyy-MM-dd`, null when the entry isn't in the diary. */
+    val diaryDate: String?,
+    val rewatch: Boolean,
+    val rating: Double?,
+    val liked: Boolean,
+    /** Plain text of the review (markup stripped), null when the entry has no review. */
+    val reviewText: String?,
+    val containsSpoilers: Boolean,
+    val whenCreated: String?,
+    val url: String?,
+)
+
+/** What a followed member did with a film (`/csi/film/<slug>/friend-activity/` fragment). */
+data class LetterboxdFriendActivity(
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String?,
+    /** Out of 5, null when not rated. */
+    val rating: Double?,
+    val liked: Boolean,
+    val reviewed: Boolean,
+    val watched: Boolean,
+    /** Only in their watchlist (not watched). */
+    val wantsToWatch: Boolean,
 )
 
 /** Who a Letterboxd page was rendered for, see [LetterboxdParsers.detectSession]. */

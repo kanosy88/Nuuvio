@@ -23,7 +23,9 @@ import kotlinx.serialization.json.putJsonObject
  * - JSON API, same origin, cookie auth, `X-CSRF-TOKEN` header for non-GET:
  *   `PATCH /api/v0/me/rate/{lid}` `{"rating": 3.5|null}`, `PATCH /api/v0/me/watchlist/{lid}` `{"inWatchlist": bool}`,
  *   `POST /api/v0/production-log-entries`, `DELETE /api/v0/production-log-entry/{id}`, `GET /api/v0/production/{lid}/me`.
+ *   `GET|PATCH /api/v0/production-log-entry/{id}` (log entry: diary details, rating, review).
  * - Form endpoints with `__csrf` field: `POST /s/{uid}/watch/` `watched=bool`, `POST /s/{uid}/like/` `liked=bool`.
+ * - HTML fragments: `/csi/film/{slug}/rating-histogram/`, `/csi/film/{slug}/friend-activity/?esiAllowUser=true`.
  * The CSRF token is the value of the `com.xk72.webparts.csrf` cookie (echoed in pages as `supermodelCSRF`).
  */
 internal class LetterboxdClient(
@@ -37,6 +39,20 @@ internal class LetterboxdClient(
     /** Letterboxd slug for a TMDB movie id, null when Letterboxd doesn't know the film. */
     suspend fun resolveSlugForTmdb(tmdbId: Int): String? {
         val response = transport.execute(LetterboxdHttpRequest("GET", "/tmdb/$tmdbId/"), authenticated = false)
+        return when (response.status) {
+            in 300..399 -> LetterboxdParsers.slugFromFilmPath(response.header("Location"))
+                ?: throw LetterboxdException(LetterboxdError.Parse, "Unexpected redirect")
+            404 -> null
+            200 -> Regex("""<meta property="og:url" content="[^"]*(/film/[^"]+)"""").find(response.body)
+                ?.groupValues?.get(1)?.let(LetterboxdParsers::slugFromFilmPath)
+            else -> throw statusError(response.status)
+        }
+    }
+
+    /** Letterboxd slug for an IMDb id (`/imdb/tt…/` redirects like `/tmdb/<id>/`), null when unknown. */
+    suspend fun resolveSlugForImdb(imdbId: String): String? {
+        require(Regex("tt\\d+").matches(imdbId)) { "Invalid IMDb id" }
+        val response = transport.execute(LetterboxdHttpRequest("GET", "/imdb/$imdbId/"), authenticated = false)
         return when (response.status) {
             in 300..399 -> LetterboxdParsers.slugFromFilmPath(response.header("Location"))
                 ?: throw LetterboxdException(LetterboxdError.Parse, "Unexpected redirect")
@@ -157,6 +173,32 @@ internal class LetterboxdClient(
         return parseFilmState(body)
     }
 
+    /** The member's log entry [logEntryId] (diary details, rating, review), from the JSON API. */
+    suspend fun fetchLogEntry(logEntryId: String): LetterboxdLogEntry {
+        val body = apiCall("GET", "/api/v0/production-log-entry/$logEntryId", null, null) as? JsonObject
+            ?: throw LetterboxdException(LetterboxdError.Parse, "Empty log entry")
+        return parseLogEntry(body)
+    }
+
+    /**
+     * What the accounts the member follows did with [film] (ratings, likes, reviews), from the film page's
+     * "Activity from friends" fragment. Empty when nobody interacted with it.
+     */
+    suspend fun fetchFriendActivity(film: LetterboxdFilm): List<LetterboxdFriendActivity> {
+        val response = transport.execute(
+            LetterboxdHttpRequest(
+                "GET",
+                "/csi/film/${film.slug}/friend-activity/?esiAllowUser=true",
+                headers = mapOf("X-Requested-With" to "XMLHttpRequest", "Accept" to "text/html, */*; q=0.01"),
+            ),
+            authenticated = true,
+            referer = film.url,
+        )
+        handleAuthStatus(response)
+        if (response.status != 200) throw statusError(response.status)
+        return LetterboxdParsers.parseFriendActivity(response.body)
+    }
+
     /**
      * Raw activity rows of the accounts the member follows (one request). Requires a valid Cloudflare clearance.
      * Parsing is best-effort; see [LetterboxdParsers.parseActivity].
@@ -205,15 +247,33 @@ internal class LetterboxdClient(
     /** Creates a diary entry and/or review. Returns the created log entry id when the response exposes it. */
     suspend fun createLogEntry(film: LetterboxdFilm, draft: LetterboxdLogEntryDraft): String? {
         val lid = film.lid ?: throw LetterboxdException(LetterboxdError.Parse, "Missing film LID")
+        val body = apiCall("POST", "/api/v0/production-log-entries", logEntryPayload(draft, productionId = lid), film) as? JsonObject
+        return body?.let { obj ->
+            obj.stringOrNull("id") ?: (obj["logEntry"] as? JsonObject)?.stringOrNull("id")
+        }
+    }
+
+    /**
+     * Replaces the fields of an existing log entry (same payload as creation, without the production id).
+     * A null diary date / empty review removes them from the entry.
+     */
+    suspend fun updateLogEntry(film: LetterboxdFilm, logEntryId: String, draft: LetterboxdLogEntryDraft) {
+        apiCall("PATCH", "/api/v0/production-log-entry/$logEntryId", logEntryPayload(draft, productionId = null), film)
+    }
+
+    private fun logEntryPayload(draft: LetterboxdLogEntryDraft, productionId: String?): JsonObject {
         val rating = draft.rating?.let(::validateRating)
-        val payload = buildJsonObject {
-            put("productionId", lid)
+        val update = productionId == null
+        return buildJsonObject {
+            if (productionId != null) put("productionId", productionId)
             if (draft.diaryDate != null) {
                 require(Regex("""\d{4}-\d{2}-\d{2}""").matches(draft.diaryDate)) { "diaryDate must be yyyy-MM-dd" }
                 putJsonObject("diaryDetails") {
                     put("diaryDate", draft.diaryDate)
                     put("rewatch", draft.rewatch)
                 }
+            } else if (update) {
+                put("diaryDetails", JsonNull)
             }
             val review = draft.review?.trim().orEmpty()
             if (review.isNotEmpty()) {
@@ -221,14 +281,12 @@ internal class LetterboxdClient(
                     put("text", review)
                     put("containsSpoilers", draft.containsSpoilers)
                 }
+            } else if (update) {
+                put("review", JsonNull)
             }
             putJsonArray("tags") { draft.tags.forEach { add(JsonPrimitive(it)) } }
-            if (rating != null) put("rating", rating)
+            if (rating != null) put("rating", rating) else if (update) put("rating", JsonNull)
             put("like", draft.liked)
-        }
-        val body = apiCall("POST", "/api/v0/production-log-entries", payload, film) as? JsonObject
-        return body?.let { obj ->
-            obj.stringOrNull("id") ?: (obj["logEntry"] as? JsonObject)?.stringOrNull("id")
         }
     }
 
@@ -339,8 +397,49 @@ internal class LetterboxdClient(
             rating = body["rating"]?.let { (it as? JsonPrimitive)?.doubleOrNull }?.takeIf { it > 0.0 },
             reviewCount = (body["reviews"] as? JsonArray)?.size ?: 0,
             diaryEntryCount = (body["diaryEntries"] as? JsonArray)?.size ?: 0,
+            reviewIds = ids(body["reviews"]),
+            diaryEntryIds = ids(body["diaryEntries"]),
+            whenWatched = body.stringOrNull("whenWatched"),
         )
     }
+
+    /** `["hdhvZL", …]` or `[{"id": "hdhvZL"}, …]`. */
+    private fun ids(element: JsonElement?): List<String> =
+        (element as? JsonArray).orEmpty().mapNotNull { item ->
+            (item as? JsonPrimitive)?.contentOrNull ?: (item as? JsonObject)?.stringOrNull("id")
+        }
+
+    /**
+     * Log entry JSON (verified Nov 2026 for diary entries): `{id, diaryDetails: {diaryDate, rewatch}, rating, like,
+     * whenCreated, links: [{type: "letterboxd", url}], review?: {text|lbml, containsSpoilers}}`.
+     */
+    private fun parseLogEntry(body: JsonObject): LetterboxdLogEntry {
+        val diary = body["diaryDetails"] as? JsonObject
+        val review = body["review"] as? JsonObject
+        val reviewText = review?.let { it.stringOrNull("lbml") ?: it.stringOrNull("text") }
+            ?.let(::reviewPlainText)?.takeIf { it.isNotBlank() }
+        val url = (body["links"] as? JsonArray)?.firstNotNullOfOrNull { link ->
+            (link as? JsonObject)?.takeIf { it.stringOrNull("type") == "letterboxd" }?.stringOrNull("url")
+        }
+        return LetterboxdLogEntry(
+            id = body.stringOrNull("id") ?: throw LetterboxdException(LetterboxdError.Parse, "Log entry without id"),
+            diaryDate = diary?.stringOrNull("diaryDate"),
+            rewatch = diary?.get("rewatch")?.let { (it as? JsonPrimitive)?.booleanOrNull } ?: false,
+            rating = (body["rating"] as? JsonPrimitive)?.doubleOrNull?.takeIf { it > 0.0 },
+            liked = (body["like"] as? JsonPrimitive)?.booleanOrNull ?: false,
+            reviewText = reviewText,
+            containsSpoilers = review?.get("containsSpoilers")?.let { (it as? JsonPrimitive)?.booleanOrNull } ?: false,
+            whenCreated = body.stringOrNull("whenCreated"),
+            url = url,
+        )
+    }
+
+    private fun reviewPlainText(markup: String): String =
+        LetterboxdParsers.decodeEntities(
+            markup.replace(Regex("(?i)<br\\s*/?>"), "\n")
+                .replace(Regex("(?i)</p>\\s*<p>"), "\n\n")
+                .replace(Regex("<[^>]+>"), ""),
+        ).trim()
 
     private fun parseJsonOrNull(text: String): JsonElement? =
         if (text.isBlank()) null else runCatching { json.parseToJsonElement(text) }.getOrNull()

@@ -140,6 +140,7 @@ import com.nuvio.app.features.details.components.TabletDetailHero
 import com.nuvio.app.features.details.components.TrailerPlayerPopup
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.mdblist.MdbListSettingsRepository
+import com.nuvio.app.features.letterboxd.ui.letterboxdFilmDetailItem
 import com.nuvio.app.features.library.LibraryRepository
 import com.nuvio.app.features.library.PendingTrackingMembershipRemoval
 import com.nuvio.app.features.library.TrackingMembershipRemovalConfirmationHost
@@ -226,6 +227,7 @@ fun MetaDetailsScreen(
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
     modifier: Modifier = Modifier,
+    onOpenLetterboxdSettings: (() -> Unit)? = null,
 ) {
     val playbackAvailability = rememberPlaybackAvailability()
     val shuffleProfile by remember {
@@ -1337,6 +1339,7 @@ fun MetaDetailsScreen(
                                             onSaveLongClick = openLibraryListPicker,
                                         )
                                     }
+                                    letterboxdFilmDetailItem(meta, desktopPageHorizontalPadding, onOpenSettings = onOpenLetterboxdSettings)
                                     configuredMetaSectionItems(
                                         settings = metaScreenSettingsUiState.copy(
                                             items = metaScreenSettingsUiState.items.filterNot {
@@ -1598,6 +1601,7 @@ fun MetaDetailsScreen(
                                         sharedTransitionScope = sharedTransitionScope,
                                         animatedVisibilityScope = animatedVisibilityScope,
                                     )
+                                    letterboxdFilmDetailItem(meta, contentHorizontalPadding, if (isTablet && !useTabletLayout) contentMaxWidth else Dp.Unspecified, onOpenLetterboxdSettings)
                                 }
 
                                 item(

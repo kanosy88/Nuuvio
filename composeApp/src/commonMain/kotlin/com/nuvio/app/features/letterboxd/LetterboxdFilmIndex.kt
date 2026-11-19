@@ -29,6 +29,8 @@ internal class LetterboxdFilmIndex(
         val version: Int = 1,
         val tmdb: Map<String, TmdbEntry> = emptyMap(),
         val films: Map<String, FilmEntry> = emptyMap(),
+        /** IMDb id → slug, used when no TMDB id is known (same expiry rules as [tmdb]). */
+        val imdb: Map<String, TmdbEntry> = emptyMap(),
     )
 
     sealed interface Lookup {
@@ -42,6 +44,7 @@ internal class LetterboxdFilmIndex(
     private var loaded = false
     private val tmdb = LinkedHashMap<String, TmdbEntry>()
     private val films = LinkedHashMap<String, FilmEntry>()
+    private val imdb = LinkedHashMap<String, TmdbEntry>()
 
     suspend fun lookupTmdb(tmdbId: Int): Lookup = mutex.withLock {
         ensureLoaded()
@@ -51,6 +54,22 @@ internal class LetterboxdFilmIndex(
             nowMs() - entry.at < negativeTtlMs -> Lookup.NotOnLetterboxd
             else -> Lookup.Miss
         }
+    }
+
+    suspend fun lookupImdb(imdbId: String): Lookup = mutex.withLock {
+        ensureLoaded()
+        val entry = imdb[imdbId] ?: return@withLock Lookup.Miss
+        when {
+            entry.slug != null -> Lookup.Found(entry.slug)
+            nowMs() - entry.at < negativeTtlMs -> Lookup.NotOnLetterboxd
+            else -> Lookup.Miss
+        }
+    }
+
+    suspend fun putImdb(imdbId: String, slug: String?) = mutex.withLock {
+        ensureLoaded()
+        imdb[imdbId] = TmdbEntry(slug, nowMs())
+        persist()
     }
 
     suspend fun putTmdb(tmdbId: Int, slug: String?) = mutex.withLock {
@@ -80,6 +99,7 @@ internal class LetterboxdFilmIndex(
         films.remove(film.slug)
         films[film.slug] = FilmEntry(film, nowMs())
         film.tmdbId?.let { tmdb[it.toString()] = TmdbEntry(film.slug, nowMs()) }
+        film.imdbId?.let { imdb[it] = TmdbEntry(film.slug, nowMs()) }
         while (films.size > maxFilms) films.remove(films.keys.first())
         persist()
     }
@@ -88,6 +108,7 @@ internal class LetterboxdFilmIndex(
         ensureLoaded()
         films.remove(slug)
         tmdb.entries.removeAll { it.value.slug == slug }
+        imdb.entries.removeAll { it.value.slug == slug }
         persist()
     }
 
@@ -98,10 +119,11 @@ internal class LetterboxdFilmIndex(
         runCatching { json.decodeFromString(Snapshot.serializer(), payload) }.getOrNull()?.let { snapshot ->
             tmdb.putAll(snapshot.tmdb)
             films.putAll(snapshot.films)
+            imdb.putAll(snapshot.imdb)
         }
     }
 
     private fun persist() {
-        runCatching { save(json.encodeToString(Snapshot.serializer(), Snapshot(tmdb = tmdb, films = films))) }
+        runCatching { save(json.encodeToString(Snapshot.serializer(), Snapshot(tmdb = tmdb, films = films, imdb = imdb))) }
     }
 }

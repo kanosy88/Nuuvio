@@ -234,6 +234,21 @@ object LetterboxdRepository {
         return film(slug, detailsMaxAgeMs)
     }
 
+    /** Same as [resolveFilmByTmdb] from an IMDb id (fallback when the TMDB id isn't known). */
+    suspend fun resolveFilmByImdb(imdbId: String, detailsMaxAgeMs: Long = DEFAULT_DETAILS_MAX_AGE_MS): LetterboxdFilm? {
+        awaitLoaded()
+        val slug = when (val lookup = index.lookupImdb(imdbId)) {
+            is LetterboxdFilmIndex.Lookup.Found -> lookup.slug
+            LetterboxdFilmIndex.Lookup.NotOnLetterboxd -> return null
+            LetterboxdFilmIndex.Lookup.Miss -> {
+                val resolved = client.resolveSlugForImdb(imdbId)
+                index.putImdb(imdbId, resolved)
+                resolved ?: return null
+            }
+        }
+        return film(slug, detailsMaxAgeMs)
+    }
+
     /** Public film data by slug, from cache when fresh enough; falls back to a stale copy on network errors. */
     suspend fun film(slug: String, maxAgeMs: Long = DEFAULT_DETAILS_MAX_AGE_MS): LetterboxdFilm {
         awaitLoaded()
