@@ -39,6 +39,7 @@ object LetterboxdRepository {
         load = { LetterboxdPlatform.readCache(FILM_INDEX_CACHE) },
         save = { LetterboxdPlatform.writeCache(FILM_INDEX_CACHE, it) },
     )
+    private val resolver = LetterboxdFilmResolver(client, index)
 
     private val mutableState = MutableStateFlow(LetterboxdAccountState())
     val state: StateFlow<LetterboxdAccountState> = mutableState.asStateFlow()
@@ -222,43 +223,19 @@ object LetterboxdRepository {
      */
     suspend fun resolveFilmByTmdb(tmdbId: Int, detailsMaxAgeMs: Long = DEFAULT_DETAILS_MAX_AGE_MS): LetterboxdFilm? {
         awaitLoaded()
-        val slug = when (val lookup = index.lookupTmdb(tmdbId)) {
-            is LetterboxdFilmIndex.Lookup.Found -> lookup.slug
-            LetterboxdFilmIndex.Lookup.NotOnLetterboxd -> return null
-            LetterboxdFilmIndex.Lookup.Miss -> {
-                val resolved = client.resolveSlugForTmdb(tmdbId)
-                index.putTmdb(tmdbId, resolved)
-                resolved ?: return null
-            }
-        }
-        return film(slug, detailsMaxAgeMs)
+        return resolver.byTmdb(tmdbId, detailsMaxAgeMs)
     }
 
     /** Same as [resolveFilmByTmdb] from an IMDb id (fallback when the TMDB id isn't known). */
     suspend fun resolveFilmByImdb(imdbId: String, detailsMaxAgeMs: Long = DEFAULT_DETAILS_MAX_AGE_MS): LetterboxdFilm? {
         awaitLoaded()
-        val slug = when (val lookup = index.lookupImdb(imdbId)) {
-            is LetterboxdFilmIndex.Lookup.Found -> lookup.slug
-            LetterboxdFilmIndex.Lookup.NotOnLetterboxd -> return null
-            LetterboxdFilmIndex.Lookup.Miss -> {
-                val resolved = client.resolveSlugForImdb(imdbId)
-                index.putImdb(imdbId, resolved)
-                resolved ?: return null
-            }
-        }
-        return film(slug, detailsMaxAgeMs)
+        return resolver.byImdb(imdbId, detailsMaxAgeMs)
     }
 
     /** Public film data by slug, from cache when fresh enough; falls back to a stale copy on network errors. */
     suspend fun film(slug: String, maxAgeMs: Long = DEFAULT_DETAILS_MAX_AGE_MS): LetterboxdFilm {
         awaitLoaded()
-        index.film(slug, maxAgeMs)?.let { return it }
-        return try {
-            client.fetchFilm(slug).also { index.putFilm(it) }
-        } catch (error: LetterboxdException) {
-            if (error.error == LetterboxdError.NotFound) index.evict(slug)
-            index.staleFilm(slug)?.takeIf { error.error != LetterboxdError.NotFound } ?: throw error
-        }
+        return resolver.film(slug, maxAgeMs)
     }
 
     /** Any cached copy of [slug] (ids and title never change), without network; null when never fetched. */
@@ -277,6 +254,9 @@ object LetterboxdRepository {
         if (!current.hasCredentials) throw LetterboxdException(LetterboxdError.NotConnected)
         return client.block(current.username)
     }
+
+    /** Spaces every Letterboxd request by at least [intervalMs] while [block] runs (bulk jobs, Cloudflare). */
+    internal suspend fun <T> paced(intervalMs: Long, block: suspend () -> T): T = transport.withPacing(intervalMs, block)
 
     // ------------------------------------------------------------------ internals
 

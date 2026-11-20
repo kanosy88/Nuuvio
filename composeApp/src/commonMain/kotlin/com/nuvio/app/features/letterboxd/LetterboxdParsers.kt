@@ -148,6 +148,10 @@ internal object LetterboxdParsers {
             )
         }.toList()
 
+    /** Number of films in a watchlist page's header (`data-num-entries="608"`), null when absent. */
+    fun parseWatchlistTotal(html: String): Int? =
+        Regex("""data-num-entries="(\d+)"""").find(html)?.groupValues?.get(1)?.toIntOrNull()
+
     fun hasNextPage(html: String): Boolean =
         Regex("""<a[^>]*class="next"[^>]*href=""").containsMatchIn(html) ||
             Regex("""<a[^>]*href="[^"]*/page/\d+/"[^>]*class="next"""").containsMatchIn(html)

@@ -69,8 +69,9 @@ internal class LetterboxdNativeSync(
 
     /** [target] was added to / removed from the Nuvio library (user action in Nuvio). */
     fun libraryChanged(target: Target, saved: Boolean) {
-        // Removal done by us after "watched": Letterboxd already dropped the film from the watchlist.
-        if (!saved && ownRemovals.consume(target.key)) return
+        // Change made by the integration itself (removal after "watched", watchlist sync F3): Letterboxd is
+        // already in that state, mirroring it would be a second write.
+        if (ownRemovals.consume(target.key, saved)) return
         run(target, if (saved) Operation.WatchlistAdd else Operation.WatchlistRemove) { film ->
             source.setInWatchlist(film, saved)
         }
@@ -116,20 +117,25 @@ internal class LetterboxdNativeSync(
     }
 }
 
-/** Remembers library removals made by the integration for a short while, so they aren't mirrored back. */
+/**
+ * Remembers library changes made by the integration for a short while, so they aren't mirrored back.
+ * [saved] = the direction of the change (false = removal, the default), so a later opposite click still counts.
+ */
 internal class LetterboxdLibraryEchoGuard(
     private val ttlMs: Long = 60_000L,
     private val nowMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
 ) {
     private val marks = LinkedHashMap<String, Long>()
 
-    fun mark(key: String) = synchronizedMarks { marks[key] = nowMs() }
+    fun mark(key: String, saved: Boolean = false) = synchronizedMarks { marks[markKey(key, saved)] = nowMs() }
 
-    /** True (and forgets it) when [key] was removed by the integration less than [ttlMs] ago. */
-    fun consume(key: String): Boolean = synchronizedMarks {
-        val at = marks.remove(key) ?: return@synchronizedMarks false
+    /** True (and forgets it) when [key] was changed that way by the integration less than [ttlMs] ago. */
+    fun consume(key: String, saved: Boolean = false): Boolean = synchronizedMarks {
+        val at = marks.remove(markKey(key, saved)) ?: return@synchronizedMarks false
         nowMs() - at < ttlMs
     }
+
+    private fun markKey(key: String, saved: Boolean) = if (saved) "+$key" else "-$key"
 
     private val lock = SynchronizedObject()
     private inline fun <T> synchronizedMarks(block: () -> T): T = synchronized(lock, block)

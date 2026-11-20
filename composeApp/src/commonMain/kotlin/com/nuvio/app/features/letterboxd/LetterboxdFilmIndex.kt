@@ -127,3 +127,46 @@ internal class LetterboxdFilmIndex(
         runCatching { save(json.encodeToString(Snapshot.serializer(), Snapshot(tmdb = tmdb, films = films, imdb = imdb))) }
     }
 }
+
+/** TMDB/IMDb id or slug → [LetterboxdFilm], through the persistent [index] first (used by the repository and F3). */
+internal class LetterboxdFilmResolver(
+    private val client: LetterboxdClient,
+    private val index: LetterboxdFilmIndex,
+) {
+    suspend fun byTmdb(tmdbId: Int, detailsMaxAgeMs: Long): LetterboxdFilm? {
+        val slug = when (val lookup = index.lookupTmdb(tmdbId)) {
+            is LetterboxdFilmIndex.Lookup.Found -> lookup.slug
+            LetterboxdFilmIndex.Lookup.NotOnLetterboxd -> return null
+            LetterboxdFilmIndex.Lookup.Miss -> {
+                val resolved = client.resolveSlugForTmdb(tmdbId)
+                index.putTmdb(tmdbId, resolved)
+                resolved ?: return null
+            }
+        }
+        return film(slug, detailsMaxAgeMs)
+    }
+
+    suspend fun byImdb(imdbId: String, detailsMaxAgeMs: Long): LetterboxdFilm? {
+        val slug = when (val lookup = index.lookupImdb(imdbId)) {
+            is LetterboxdFilmIndex.Lookup.Found -> lookup.slug
+            LetterboxdFilmIndex.Lookup.NotOnLetterboxd -> return null
+            LetterboxdFilmIndex.Lookup.Miss -> {
+                val resolved = client.resolveSlugForImdb(imdbId)
+                index.putImdb(imdbId, resolved)
+                resolved ?: return null
+            }
+        }
+        return film(slug, detailsMaxAgeMs)
+    }
+
+    /** From cache when fresh enough; falls back to a stale copy on network errors. */
+    suspend fun film(slug: String, maxAgeMs: Long): LetterboxdFilm {
+        index.film(slug, maxAgeMs)?.let { return it }
+        return try {
+            client.fetchFilm(slug).also { index.putFilm(it) }
+        } catch (error: LetterboxdException) {
+            if (error.error == LetterboxdError.NotFound) index.evict(slug)
+            index.staleFilm(slug)?.takeIf { error.error != LetterboxdError.NotFound } ?: throw error
+        }
+    }
+}

@@ -73,6 +73,11 @@ internal class LetterboxdTransport(
 ) {
     private val throttle = Mutex()
     private var lastRequestAt = 0L
+
+    /** Extra spacing between requests while a bulk job (watchlist sync) runs, see [withPacing]. */
+    @kotlin.concurrent.Volatile
+    private var pacingMs = 0L
+    private val pacingLock = Mutex()
     private val jarLock = Mutex()
     private val jar = LinkedHashMap<String, String>()
 
@@ -90,6 +95,19 @@ internal class LetterboxdTransport(
     }
 
     suspend fun clear() = jarLock.withLock { jar.clear() }
+
+    /**
+     * Runs [block] with at least [intervalMs] between two requests (all callers, so a bulk job and the rest of
+     * the app don't add up to a burst). Bulk jobs are serialized by [pacingLock].
+     */
+    suspend fun <T> withPacing(intervalMs: Long, block: suspend () -> T): T = pacingLock.withLock {
+        pacingMs = intervalMs
+        try {
+            block()
+        } finally {
+            pacingMs = 0L
+        }
+    }
 
     suspend fun cookieSnapshot(): Map<String, String> = jarLock.withLock { LinkedHashMap(jar) }
 
@@ -129,7 +147,7 @@ internal class LetterboxdTransport(
         headers.putAll(request.headers)
 
         throttle.withLock {
-            val wait = lastRequestAt + minIntervalMs - nowMs()
+            val wait = lastRequestAt + maxOf(minIntervalMs, pacingMs) - nowMs()
             if (wait > 0) sleep(wait)
             lastRequestAt = nowMs()
         }

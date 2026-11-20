@@ -130,6 +130,13 @@ data class LetterboxdWatchlistItem(
     val name: String?,
 )
 
+/** One page of a member's watchlist; [totalEntries] is the count Letterboxd announces for the whole watchlist. */
+data class LetterboxdWatchlistPage(
+    val items: List<LetterboxdWatchlistItem>,
+    val hasNext: Boolean,
+    val totalEntries: Int?,
+)
+
 /** One diary/watch entry from a member's public RSS feed (carries the TMDB id). */
 data class LetterboxdDiaryEntry(
     val member: String?,

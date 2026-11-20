@@ -95,15 +95,30 @@ internal class LetterboxdClient(
     suspend fun fetchWatchlist(username: String, maxPages: Int = 60): List<LetterboxdWatchlistItem> {
         val items = mutableListOf<LetterboxdWatchlistItem>()
         for (page in 1..maxPages) {
-            val path = if (page == 1) "/$username/watchlist/" else "/$username/watchlist/page/$page/"
-            val response = transport.execute(LetterboxdHttpRequest("GET", path), authenticated = true)
-            if (response.status == 404) throw LetterboxdException(LetterboxdError.NotFound, status = 404)
-            if (response.status != 200) throw statusError(response.status)
-            val pageItems = LetterboxdParsers.parseWatchlistPage(response.body)
-            items += pageItems
-            if (pageItems.isEmpty() || !LetterboxdParsers.hasNextPage(response.body)) break
+            val result = fetchWatchlistPage(username, page)
+            items += result.items
+            if (!result.hasNext) break
         }
         return items.distinctBy { it.slug }
+    }
+
+    /**
+     * One page (28 films) of `/<user>/watchlist/page/N/` (verified Nov 2026: `<li class="griditem">` posters with
+     * `data-item-slug` + `data-postered-identifier` {lid, uid}, `<a class="next">` link, total in `data-num-entries`).
+     */
+    suspend fun fetchWatchlistPage(username: String, page: Int): LetterboxdWatchlistPage {
+        require(page >= 1) { "Invalid page" }
+        val path = if (page == 1) "/$username/watchlist/" else "/$username/watchlist/page/$page/"
+        val response = transport.execute(LetterboxdHttpRequest("GET", path), authenticated = true)
+        handleAuthStatus(response)
+        if (response.status == 404) throw LetterboxdException(LetterboxdError.NotFound, status = 404)
+        if (response.status != 200) throw statusError(response.status)
+        val items = LetterboxdParsers.parseWatchlistPage(response.body)
+        return LetterboxdWatchlistPage(
+            items = items,
+            hasNext = items.isNotEmpty() && LetterboxdParsers.hasNextPage(response.body),
+            totalEntries = LetterboxdParsers.parseWatchlistTotal(response.body),
+        )
     }
 
     suspend fun fetchFollowing(username: String, maxPages: Int = 20): List<String> {

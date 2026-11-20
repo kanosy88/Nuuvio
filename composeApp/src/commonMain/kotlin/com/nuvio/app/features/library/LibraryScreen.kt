@@ -98,6 +98,7 @@ import com.nuvio.app.features.watching.application.WatchingState
 import com.nuvio.app.core.poster.CustomPosterScreen
 import com.nuvio.app.core.poster.CustomPosterUrlRepository
 import com.nuvio.app.core.poster.withCustomPosterUrl
+import com.nuvio.app.features.letterboxd.ui.LetterboxdLibrarySyncButton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
@@ -363,6 +364,7 @@ fun LibraryScreen(
                             topPadding = topChromePadding,
                             actions = {
                                 if (sourceMode == LibraryViewMode.Saved) {
+                                    LetterboxdLibrarySyncButton()
                                     LibraryListManagementButton()
                                     val targetLayout = if (displaySettings.layoutMode == LibraryLayoutMode.HORIZONTAL) {
                                         LibraryLayoutMode.VERTICAL
