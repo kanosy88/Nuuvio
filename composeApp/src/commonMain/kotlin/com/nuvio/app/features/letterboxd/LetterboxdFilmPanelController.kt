@@ -26,6 +26,7 @@ internal interface LetterboxdFilmSource {
     suspend fun logEntry(id: String): LetterboxdLogEntry
     suspend fun friends(film: LetterboxdFilm): List<LetterboxdFriendActivity>
     suspend fun setWatched(film: LetterboxdFilm, watched: Boolean)
+    suspend fun setInWatchlist(film: LetterboxdFilm, inWatchlist: Boolean)
     suspend fun setLiked(film: LetterboxdFilm, liked: Boolean)
     suspend fun setRating(film: LetterboxdFilm, rating: Double?)
     suspend fun createLogEntry(film: LetterboxdFilm, draft: LetterboxdLogEntryDraft)
@@ -73,6 +74,7 @@ internal class ClientLetterboxdFilmSource(
     override suspend fun logEntry(id: String) = cached("entry:$id") { client.fetchLogEntry(id) }
     override suspend fun friends(film: LetterboxdFilm) = cached("friends:${film.slug}") { client.fetchFriendActivity(film) }
     override suspend fun setWatched(film: LetterboxdFilm, watched: Boolean) = write { client.setWatched(film, watched); Unit }
+    override suspend fun setInWatchlist(film: LetterboxdFilm, inWatchlist: Boolean) = write { client.setInWatchlist(film, inWatchlist) }
     override suspend fun setLiked(film: LetterboxdFilm, liked: Boolean) = write { client.setLiked(film, liked); Unit }
     override suspend fun setRating(film: LetterboxdFilm, rating: Double?) = write { client.setRating(film, rating) }
     override suspend fun createLogEntry(film: LetterboxdFilm, draft: LetterboxdLogEntryDraft) =
@@ -145,7 +147,7 @@ internal data class LetterboxdFilmPanelState(
     enum class Phase { Idle, Loading, NotOnLetterboxd, Ready, Failed }
     enum class Connection { NotConnected, ReconnectRequired, Connected }
     enum class PersonalPhase { Idle, Loading, Ready, Failed }
-    enum class Action { Watched, Like, Rating, Review }
+    enum class Action { Like, Rating, Review }
 }
 
 /**
@@ -153,6 +155,7 @@ internal data class LetterboxdFilmPanelState(
  * (average, histogram) and, when an account is connected, the member's state, latest review and friends' activity.
  * Every write re-reads the member's state afterwards (the source of truth), and [onBecameWatched] runs when
  * a write turned the film from "not watched" into "watched" (Letterboxd then drops it from the watchlist).
+ * "Watched" itself is not written from here: Nuvio's own watched button drives it ([LetterboxdNativeSync]).
  */
 internal class LetterboxdFilmPanelController(
     private val source: LetterboxdFilmSource,
@@ -261,11 +264,6 @@ internal class LetterboxdFilmPanelController(
                 }
             }
         }
-    }
-
-    fun toggleWatched() {
-        val watched = mutableState.value.myState?.watched ?: false
-        act(LetterboxdFilmPanelState.Action.Watched) { film -> source.setWatched(film, !watched) }
     }
 
     fun toggleLike() {

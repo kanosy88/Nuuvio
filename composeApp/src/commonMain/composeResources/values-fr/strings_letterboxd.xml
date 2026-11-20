@@ -59,7 +59,7 @@
     <string name="letterboxd_film_reconnect">Votre session Letterboxd a expiré. Collez de nouveaux cookies dans les réglages.</string>
     <string name="letterboxd_film_personal_loading">Chargement de votre activité Letterboxd…</string>
     <string name="letterboxd_film_watched">Vu</string>
-    <string name="letterboxd_film_mark_watched">Marquer comme vu</string>
+    <string name="letterboxd_film_not_watched">Pas vu</string>
     <string name="letterboxd_film_like">J’aime</string>
     <string name="letterboxd_film_liked">Aimé</string>
     <string name="letterboxd_film_your_rating">Votre note</string>
@@ -91,4 +91,10 @@
     <string name="letterboxd_review_placeholder">Ajouter une critique…</string>
     <string name="letterboxd_review_spoilers">Contient des spoilers</string>
     <string name="letterboxd_review_empty">Ajoutez une date de visionnage ou une critique.</string>
+    <string name="letterboxd_sync_failed_watched">Letterboxd n’a pas été mis à jour (vu). %1$s</string>
+    <string name="letterboxd_sync_failed_unwatched">Letterboxd n’a pas été mis à jour (pas vu). %1$s</string>
+    <string name="letterboxd_sync_failed_watchlist_add">Non ajouté à votre watchlist Letterboxd. %1$s</string>
+    <string name="letterboxd_sync_failed_watchlist_remove">Non retiré de votre watchlist Letterboxd. %1$s</string>
+    <string name="letterboxd_sync_not_on_letterboxd">Ce film n’est pas sur Letterboxd : rien n’y a été modifié.</string>
+    <string name="letterboxd_sync_reconnect">Votre session Letterboxd a expiré : Letterboxd n’a pas été mis à jour. Collez de nouveaux cookies dans Réglages › Letterboxd.</string>
 </resources>

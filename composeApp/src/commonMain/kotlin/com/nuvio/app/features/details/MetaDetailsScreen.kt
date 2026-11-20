@@ -140,6 +140,7 @@ import com.nuvio.app.features.details.components.TabletDetailHero
 import com.nuvio.app.features.details.components.TrailerPlayerPopup
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.mdblist.MdbListSettingsRepository
+import com.nuvio.app.features.letterboxd.ui.LetterboxdNativeSyncEffect
 import com.nuvio.app.features.letterboxd.ui.letterboxdFilmDetailItem
 import com.nuvio.app.features.library.LibraryRepository
 import com.nuvio.app.features.library.PendingTrackingMembershipRemoval
@@ -564,6 +565,7 @@ fun MetaDetailsScreen(
                         fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
                     )
                 }
+                LetterboxdNativeSyncEffect(meta)
                 val openLibraryListPicker = remember(meta) {
                     {
                         val libraryItem = meta.toLibraryItem(savedAtEpochMs = 0L)

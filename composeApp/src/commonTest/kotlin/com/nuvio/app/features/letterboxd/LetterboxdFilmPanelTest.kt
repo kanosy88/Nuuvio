@@ -3,6 +3,7 @@ package com.nuvio.app.features.letterboxd
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -127,7 +128,7 @@ class LetterboxdFilmPanelTest {
         assertNull(state.myState)
         assertTrue(server.requests.none { it.path.startsWith("/api/") || it.path.contains("friend-activity") })
         // Writes are ignored without an account.
-        controller.toggleWatched()
+        controller.toggleLike()
         testScheduler.advanceUntilIdle()
         assertTrue(server.requests.none { it.method != "GET" })
     }
@@ -181,32 +182,6 @@ class LetterboxdFilmPanelTest {
         testScheduler.advanceUntilIdle()
         assertEquals(LetterboxdFilmPanelState.Phase.Failed, controller.state.value.phase)
         assertEquals(LetterboxdError.Network, controller.state.value.error)
-    }
-
-    @Test
-    fun markWatchedPostsFormAndTriggersLibraryRemovalOnce() = runTest {
-        val server = FakeLetterboxdServer(this, film)
-        var removals = 0
-        val controller = server.controller(onBecameWatched = { removals++ })
-        controller.load(530385)
-        testScheduler.advanceUntilIdle()
-        assertFalse(controller.state.value.myState!!.watched)
-
-        controller.toggleWatched()
-        testScheduler.advanceUntilIdle()
-        val post = server.requests.last { it.method == "POST" }
-        assertEquals("/s/film:459564/watch/", post.path)
-        assertEquals("watched=true&__csrf=tok", post.body)
-        assertTrue(controller.state.value.myState!!.watched)
-        assertFalse(server.inWatchlist, "Letterboxd drops watched films from the watchlist")
-        assertEquals(1, removals)
-
-        // Un-watching doesn't touch the library.
-        controller.toggleWatched()
-        testScheduler.advanceUntilIdle()
-        assertEquals("watched=false&__csrf=tok", server.requests.last { it.method == "POST" }.body)
-        assertFalse(controller.state.value.myState!!.watched)
-        assertEquals(1, removals)
     }
 
     @Test
@@ -272,21 +247,160 @@ class LetterboxdFilmPanelTest {
         assertEquals(1, removals)
     }
 
+    // ------------------------------------------------------------------ Nuvio's native buttons → Letterboxd (F1 revision)
+
     @Test
-    fun refusedWriteShowsLetterboxdMessage() = runTest {
+    fun nativeWatchedMarksWatchedOnLetterboxdThenLeavesTheLibraryWithoutEcho() = runTest {
+        val server = FakeLetterboxdServer(this, film)
+        val native = server.nativeSync()
+        native.sync.watchedChanged(native.target, true)
+        testScheduler.advanceUntilIdle()
+        val post = server.requests.single { it.method == "POST" }
+        assertEquals("/s/film:459564/watch/", post.path)
+        assertEquals("watched=true&__csrf=tok", post.body)
+        assertTrue(server.watched)
+        assertFalse(server.inWatchlist)
+        assertTrue(server.requests.none { it.method == "PATCH" }, "Letterboxd already dropped it from the watchlist")
+        assertEquals(1, native.removals)
+        assertEquals(listOf<LetterboxdNativeSync.Notice>(LetterboxdNativeSync.Notice.LibraryRemoval(LetterboxdLibraryBridge.Result.Removed)), native.notices)
+        assertEquals(listOf("midsommar"), native.changes)
+
+        // The library removal it caused is seen by the observer: not mirrored back onto the watchlist.
+        native.sync.libraryChanged(native.target, false)
+        testScheduler.advanceUntilIdle()
+        assertTrue(server.requests.none { it.method == "PATCH" })
+
+        // Not watched in Nuvio → not watched on Letterboxd; the library isn't touched.
+        native.sync.watchedChanged(native.target, false)
+        testScheduler.advanceUntilIdle()
+        assertEquals("watched=false&__csrf=tok", server.requests.last { it.method == "POST" }.body)
+        assertFalse(server.watched)
+        assertEquals(1, native.removals)
+    }
+
+    @Test
+    fun nativeWatchedDropsFromTheWatchlistWhenLetterboxdKeptIt() = runTest {
+        val server = FakeLetterboxdServer(this, film)
+        server.watchKeepsWatchlist = true
+        val native = server.nativeSync(removal = LetterboxdLibraryBridge.Result.NotInLibrary)
+        native.sync.watchedChanged(native.target, true)
+        testScheduler.advanceUntilIdle()
+        val patch = server.requests.single { it.method == "PATCH" }
+        assertEquals("/api/v0/me/watchlist/jhxe", patch.path)
+        assertEquals("""{"inWatchlist":false}""", patch.body)
+        assertFalse(server.inWatchlist)
+        assertTrue(native.notices.isEmpty(), "nothing to report when the film wasn't in the library")
+    }
+
+    @Test
+    fun nativeLibraryButtonDrivesTheWatchlist() = runTest {
+        val server = FakeLetterboxdServer(this, film)
+        server.inWatchlist = false
+        val native = server.nativeSync()
+        native.sync.libraryChanged(native.target, true)
+        testScheduler.advanceUntilIdle()
+        assertEquals("""{"inWatchlist":true}""", server.requests.last { it.method == "PATCH" }.body)
+        assertTrue(server.inWatchlist)
+        native.sync.libraryChanged(native.target, false)
+        testScheduler.advanceUntilIdle()
+        assertEquals("/api/v0/me/watchlist/jhxe", server.requests.last { it.method == "PATCH" }.path)
+        assertEquals("""{"inWatchlist":false}""", server.requests.last { it.method == "PATCH" }.body)
+        assertFalse(server.inWatchlist)
+        assertEquals(0, native.removals)
+        assertTrue(native.notices.isEmpty())
+    }
+
+    @Test
+    fun nativeButtonsDoNothingWithoutAccount() = runTest {
+        val server = FakeLetterboxdServer(this, film, account = LetterboxdAccountState(isLoaded = true))
+        val native = server.nativeSync()
+        native.sync.watchedChanged(native.target, true)
+        native.sync.libraryChanged(native.target, true)
+        testScheduler.advanceUntilIdle()
+        assertTrue(server.requests.isEmpty())
+        assertTrue(native.notices.isEmpty())
+        assertEquals(0, native.removals)
+    }
+
+    @Test
+    fun letterboxdFailureIsReportedAndNuvioIsLeftAlone() = runTest {
         val server = FakeLetterboxdServer(this, film)
         server.watched = true
         server.entries["e1"] = FakeLetterboxdServer.Entry(diaryDate = "2026-11-08")
-        val controller = server.controller()
-        controller.load(530385)
+        val native = server.nativeSync()
+        native.sync.watchedChanged(native.target, false) // refused: there is diary activity
         testScheduler.advanceUntilIdle()
-        controller.toggleWatched() // un-watch refused: there is diary activity
+        assertEquals(
+            listOf<LetterboxdNativeSync.Notice>(
+                LetterboxdNativeSync.Notice.Failed(LetterboxdNativeSync.Operation.Unwatched, LetterboxdError.Rejected, "There is activity on this film."),
+            ),
+            native.notices,
+        )
+        assertTrue(server.watched)
+
+        server.sessionValid = false
+        native.sync.watchedChanged(native.target, true)
         testScheduler.advanceUntilIdle()
-        val state = controller.state.value
-        assertEquals(LetterboxdError.Rejected, state.actionError)
-        assertEquals("There is activity on this film.", state.actionErrorDetail)
-        assertTrue(state.myState!!.watched)
-        assertNull(state.busy)
+        val failure = native.notices.last() as LetterboxdNativeSync.Notice.Failed
+        assertEquals(LetterboxdNativeSync.Operation.Watched, failure.operation)
+        assertEquals(0, native.removals, "no library removal when Letterboxd wasn't updated")
+    }
+
+    @Test
+    fun expiredOrUnknownFilmIsReported() = runTest {
+        val expired = connectedAccount.copy(status = LetterboxdConnectionStatus.ReconnectRequired)
+        val server = FakeLetterboxdServer(this, film, account = expired)
+        val native = server.nativeSync()
+        native.sync.libraryChanged(native.target, true)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf<LetterboxdNativeSync.Notice>(LetterboxdNativeSync.Notice.ReconnectRequired(LetterboxdNativeSync.Operation.WatchlistAdd)), native.notices)
+        assertTrue(server.requests.none { it.method != "GET" })
+
+        val other = FakeLetterboxdServer(this, film).nativeSync(film = null)
+        other.sync.watchedChanged(other.target, true)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf<LetterboxdNativeSync.Notice>(LetterboxdNativeSync.Notice.NotOnLetterboxd(LetterboxdNativeSync.Operation.Watched)), other.notices)
+        assertEquals(0, other.removals)
+    }
+
+    @Test
+    fun trackerOnlyReportsChangesBetweenSettledObservations() {
+        val tracker = LetterboxdNativeStateTracker()
+        val base = LetterboxdNativeStateTracker.Observation(
+            watchedLoaded = false, watchedRemoteLoaded = false, watched = false,
+            libraryLoaded = false, librarySource = "LOCAL", saved = false,
+        )
+        assertTrue(tracker.next(base).isEmpty())
+        // Loading the repositories isn't a click.
+        assertTrue(tracker.next(base.copy(watchedLoaded = true, watched = true, libraryLoaded = true, saved = true)).isEmpty())
+        val loaded = base.copy(watchedLoaded = true, watched = true, libraryLoaded = true, saved = true)
+        // Remote watched items arriving, or another library source, aren't clicks either.
+        assertTrue(tracker.next(loaded.copy(watchedRemoteLoaded = true, watched = false)).isEmpty())
+        assertTrue(tracker.next(loaded.copy(watchedRemoteLoaded = true, watched = false, librarySource = "TRAKT", saved = false)).isEmpty())
+        val settled = loaded.copy(watchedRemoteLoaded = true, watched = false, librarySource = "TRAKT", saved = false)
+        assertEquals(listOf<LetterboxdNativeStateTracker.Change>(LetterboxdNativeStateTracker.Change.Watched(true)), tracker.next(settled.copy(watched = true)))
+        assertEquals(listOf<LetterboxdNativeStateTracker.Change>(LetterboxdNativeStateTracker.Change.Library(true)), tracker.next(settled.copy(watched = true, saved = true)))
+        assertTrue(tracker.next(settled.copy(watched = true, saved = true)).isEmpty())
+        assertEquals(
+            listOf(LetterboxdNativeStateTracker.Change.Watched(false), LetterboxdNativeStateTracker.Change.Library(false)),
+            tracker.next(settled),
+        )
+        // Profile switch: unloaded, then reloaded with other values → nothing.
+        assertTrue(tracker.next(settled.copy(watchedLoaded = false, libraryLoaded = false)).isEmpty())
+        assertTrue(tracker.next(settled.copy(watched = true, saved = true)).isEmpty())
+    }
+
+    @Test
+    fun echoGuardForgetsAfterTtl() {
+        var now = 0L
+        val guard = LetterboxdLibraryEchoGuard(ttlMs = 1_000, nowMs = { now })
+        assertFalse(guard.consume("a"))
+        guard.mark("a")
+        assertTrue(guard.consume("a"))
+        assertFalse(guard.consume("a"), "consumed once")
+        guard.mark("b")
+        now = 5_000
+        assertFalse(guard.consume("b"))
     }
 
     @Test
@@ -379,6 +493,8 @@ class LetterboxdFilmPanelTest {
         var liked = false
         var rating: Double? = null
         var inWatchlist = true
+        /** Simulates Letterboxd keeping a film in the watchlist after "watched" (not expected). */
+        var watchKeepsWatchlist = false
         var sessionValid = true
         val entries = LinkedHashMap<String, Entry>()
         val requests = mutableListOf<LetterboxdHttpRequest>()
@@ -407,7 +523,7 @@ class LetterboxdFilmPanelTest {
                         LetterboxdHttpResponse(200, emptyMap(), """{"result":false,"messages":["There is activity on this film."]}""")
                     } else {
                         watched = target
-                        if (target) inWatchlist = false
+                        if (target && !watchKeepsWatchlist) inWatchlist = false
                         ok("""{"result":true,"watched":$target}""")
                     }
                 }
@@ -418,6 +534,10 @@ class LetterboxdFilmPanelTest {
                 path == "/api/v0/me/rate/$lid" && request.method == "PATCH" -> {
                     rating = body(request)["rating"]?.jsonPrimitive?.doubleOrNull
                     if (rating != null) { watched = true; inWatchlist = false }
+                    LetterboxdHttpResponse(204, emptyMap(), "")
+                }
+                path == "/api/v0/me/watchlist/$lid" && request.method == "PATCH" -> {
+                    inWatchlist = body(request)["inWatchlist"]?.jsonPrimitive?.booleanOrNull ?: error("inWatchlist expected")
                     LetterboxdHttpResponse(204, emptyMap(), "")
                 }
                 path == "/api/v0/production-log-entries" && request.method == "POST" -> {
@@ -489,6 +609,34 @@ class LetterboxdFilmPanelTest {
             val source = ClientLetterboxdFilmSource(client(), account, resolve, resolveImdb)
             // Not backgroundScope: the test scheduler's advanceUntilIdle() skips background work.
             return LetterboxdFilmPanelController(source, controllerScope, onBecameWatched)
+        }
+
+        class Native(val sync: LetterboxdNativeSync, val target: LetterboxdNativeSync.Target) {
+            var removals = 0
+            val notices = mutableListOf<LetterboxdNativeSync.Notice>()
+            val changes = mutableListOf<String>()
+        }
+
+        suspend fun nativeSync(
+            film: LetterboxdFilm? = this.film,
+            removal: LetterboxdLibraryBridge.Result = LetterboxdLibraryBridge.Result.Removed,
+        ): Native {
+            val source = ClientLetterboxdFilmSource(client(), MutableStateFlow(account), { film })
+            lateinit var native: Native
+            val sync = LetterboxdNativeSync(
+                source = source,
+                scope = controllerScope,
+                notify = { native.notices += it },
+                ownRemovals = LetterboxdLibraryEchoGuard(),
+            )
+            val target = LetterboxdNativeSync.Target(
+                key = "tt8772262",
+                resolveFilm = { film },
+                removeFromLibrary = { native.removals++; removal },
+            )
+            native = Native(sync, target)
+            controllerScope.launch { sync.changes.collect { native.changes += it } }
+            return native
         }
     }
 }

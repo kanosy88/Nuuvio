@@ -153,6 +153,12 @@ internal fun LetterboxdFilmBlock(
         val imdbId = meta.imdbId ?: meta.id.substringBefore(':').takeIf { it.startsWith("tt") }
         controller.load(resolved, imdbId)
     }
+    LaunchedEffect(controller) {
+        // Nuvio's watched / library buttons wrote to Letterboxd: show the new state.
+        LetterboxdNativeActions.sync.changes.collect { slug ->
+            if (slug == controller.state.value.film?.slug) controller.loadPersonal()
+        }
+    }
     val state by controller.state.collectAsStateWithLifecycle()
     LetterboxdFilmBlockContent(
         title = meta.name,
@@ -161,7 +167,6 @@ internal fun LetterboxdFilmBlock(
         onRetry = controller::retry,
         onRetryPersonal = controller::loadPersonal,
         onOpenSettings = onOpenSettings,
-        onToggleWatched = controller::toggleWatched,
         onToggleLike = controller::toggleLike,
         onRate = controller::setRating,
         onSaveReview = controller::saveReview,
@@ -177,7 +182,6 @@ internal fun LetterboxdFilmBlockContent(
     onRetry: () -> Unit = {},
     onRetryPersonal: () -> Unit = {},
     onOpenSettings: (() -> Unit)? = null,
-    onToggleWatched: () -> Unit = {},
     onToggleLike: () -> Unit = {},
     onRate: (Double?) -> Unit = {},
     onSaveReview: (LetterboxdLogEntryDraft, String?) -> Unit = { _, _ -> },
@@ -227,12 +231,12 @@ internal fun LetterboxdFilmBlockContent(
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                         CommunitySection(state, Modifier.width(300.dp))
-                        PersonalSection(title, state, Modifier.weight(1f), onRetryPersonal, onOpenSettings, onToggleWatched, onToggleLike, onRate, onSaveReview)
+                        PersonalSection(title, state, Modifier.weight(1f), onRetryPersonal, onOpenSettings, onToggleLike, onRate, onSaveReview)
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         CommunitySection(state, Modifier.fillMaxWidth())
-                        PersonalSection(title, state, Modifier.fillMaxWidth(), onRetryPersonal, onOpenSettings, onToggleWatched, onToggleLike, onRate, onSaveReview)
+                        PersonalSection(title, state, Modifier.fillMaxWidth(), onRetryPersonal, onOpenSettings, onToggleLike, onRate, onSaveReview)
                     }
                 }
             }
@@ -314,7 +318,6 @@ private fun PersonalSection(
     modifier: Modifier,
     onRetry: () -> Unit,
     onOpenSettings: (() -> Unit)?,
-    onToggleWatched: () -> Unit,
     onToggleLike: () -> Unit,
     onRate: (Double?) -> Unit,
     onSaveReview: (LetterboxdLogEntryDraft, String?) -> Unit,
@@ -330,7 +333,7 @@ private fun PersonalSection(
                     onRetry = onRetry,
                 )
                 PersonalPhase.Ready -> {
-                    MyActivity(title, state, onToggleWatched, onToggleLike, onRate, onSaveReview)
+                    MyActivity(title, state, onToggleLike, onRate, onSaveReview)
                     FriendsSection(state)
                 }
             }
@@ -343,7 +346,6 @@ private fun PersonalSection(
 private fun MyActivity(
     title: String,
     state: LetterboxdFilmPanelState,
-    onToggleWatched: () -> Unit,
     onToggleLike: () -> Unit,
     onRate: (Double?) -> Unit,
     onSaveReview: (LetterboxdLogEntryDraft, String?) -> Unit,
@@ -356,14 +358,12 @@ private fun MyActivity(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToggleChip(
+            // Read-only: Nuvio's own "watched" button (next to Play) drives it (LetterboxdNativeSyncEffect).
+            StatusChip(
                 selected = myState.watched,
                 icon = if (myState.watched) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
-                label = stringResource(if (myState.watched) Res.string.letterboxd_film_watched else Res.string.letterboxd_film_mark_watched),
+                label = stringResource(if (myState.watched) Res.string.letterboxd_film_watched else Res.string.letterboxd_film_not_watched),
                 selectedColor = LetterboxdGreen,
-                enabled = !busy,
-                loading = state.busy == Action.Watched,
-                onClick = onToggleWatched,
             )
             ToggleChip(
                 selected = myState.liked,
@@ -707,6 +707,28 @@ private fun ToggleChip(
         }
         Spacer(Modifier.width(8.dp))
         Text(label, color = if (selected) selectedColor else tokens.colors.textPrimary)
+    }
+}
+
+/** Same look as [ToggleChip], not clickable. */
+@Composable
+private fun StatusChip(
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selectedColor: Color,
+) {
+    val tokens = MaterialTheme.nuvio
+    Row(
+        modifier = Modifier
+            .height(40.dp)
+            .border(1.dp, if (selected) selectedColor else tokens.colors.textPrimary.copy(alpha = 0.2f), CircleShape)
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = if (selected) selectedColor else tokens.colors.textSecondary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) selectedColor else tokens.colors.textSecondary)
     }
 }
 

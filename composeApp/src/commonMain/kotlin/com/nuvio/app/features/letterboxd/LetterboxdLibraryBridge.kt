@@ -17,11 +17,15 @@ internal object LetterboxdLibraryBridge {
 
     enum class Result { NotInLibrary, Removed, NeedsConfirmation, Failed }
 
+    /** Removals made here, so the native library observer doesn't mirror them onto the watchlist again. */
+    val ownRemovals = LetterboxdLibraryEchoGuard()
+
     suspend fun removeWatchedMovie(meta: MetaDetails, tmdbId: Int?): Result {
         if (!meta.type.equals("movie", ignoreCase = true)) return Result.NotInLibrary
         LibraryRepository.ensureLoaded()
         val candidates = savedCopies(meta, tmdbId)
         if (candidates.isEmpty()) return Result.NotInLibrary
+        ownRemovals.mark(meta.id)
         var result = Result.Removed
         for (item in candidates) {
             try {
@@ -34,6 +38,7 @@ internal object LetterboxdLibraryBridge {
                 result = Result.Failed
             }
         }
+        if (result != Result.Removed) ownRemovals.consume(meta.id)
         return result
     }
 
