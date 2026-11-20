@@ -50,8 +50,14 @@ data class LetterboxdFilm(
     val averageRating: Double? = null,
     val ratingCount: Int? = null,
     val reviewCount: Int? = null,
+    /** `movie` or `tv` (`data-tmdb-type`); Letterboxd also lists miniseries, which Nuvio features skip. */
+    val tmdbType: String? = null,
 ) {
     val url: String get() = "$LETTERBOXD_BASE_URL/film/$slug/"
+    val isTvShow: Boolean get() = tmdbType == "tv"
+
+    /** A real film for Nuvio: Letterboxd films always have a TMDB movie id (TV entries don't, even in old caches). */
+    val isNuvioMovie: Boolean get() = !isTvShow && tmdbId != null
 }
 
 /** Histogram of ratings, index 0 = ½★ … index 9 = 5★. */
@@ -150,6 +156,7 @@ enum class LetterboxdActivityType {
 }
 
 /** One row of the "following" activity stream (best-effort HTML parsing). */
+@Serializable
 data class LetterboxdActivityItem(
     val member: String,
     val filmSlug: String,
@@ -157,6 +164,20 @@ data class LetterboxdActivityItem(
     val type: LetterboxdActivityType,
     val rating: Double?,
     val timestamp: String?,
+    /** `data-activity-id`, also the pagination cursor (`?after=<id>`). */
+    val activityId: String? = null,
+    /** Display name (avatar `alt` / `<strong>`), falls back to [member]. */
+    val memberName: String? = null,
+    val avatarUrl: String? = null,
+    /** The row says the member also liked the film ("watched, liked and rated"). */
+    val liked: Boolean = false,
+    val rewatch: Boolean = false,
+)
+
+/** One page of the "following" activity stream; [hasMore] is false once Letterboxd prints "End of recent activity". */
+data class LetterboxdActivityPage(
+    val items: List<LetterboxdActivityItem>,
+    val hasMore: Boolean,
 )
 
 /** A diary entry / review to create. Dates are ISO `yyyy-MM-dd`. */

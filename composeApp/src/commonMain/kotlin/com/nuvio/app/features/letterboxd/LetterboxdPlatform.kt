@@ -22,6 +22,10 @@ internal expect object LetterboxdPlatform {
     fun readState(): String?
     fun writeState(value: String?)
 
+    /** Non-secret feature settings (JSON), kept with the app settings (not in the disk cache). */
+    fun readPreference(name: String): String?
+    fun writePreference(name: String, value: String?)
+
     /** Disk cache files (TMDB↔slug index, film details…). */
     fun readCache(name: String): String?
     fun writeCache(name: String, value: String)

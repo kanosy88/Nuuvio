@@ -1,0 +1,42 @@
+<resources>
+    <string name="letterboxd_friends_row_title">Recently rated by friends</string>
+    <string name="letterboxd_friends_refresh">Refresh</string>
+    <string name="letterboxd_friends_empty">No recent activity from the accounts you follow for these settings.</string>
+    <string name="letterboxd_friends_loading">Loading your friends’ activity…</string>
+    <string name="letterboxd_friends_error">Couldn’t refresh: %1$s</string>
+    <string name="letterboxd_friends_open_failed">This film can’t be opened in Nuvio: %1$s</string>
+    <string name="letterboxd_friends_more">+%1$d</string>
+    <string name="letterboxd_friends_liked">Liked</string>
+    <string name="letterboxd_friends_reviewed">Reviewed</string>
+    <string name="letterboxd_friends_watched">Watched</string>
+
+    <string name="letterboxd_section_friends">RECENTLY RATED BY FRIENDS</string>
+    <string name="letterboxd_friends_setting_enabled">Show the row on the home screen</string>
+    <string name="letterboxd_friends_setting_enabled_description">Films the accounts you follow recently rated, watched or reviewed. Films only.</string>
+    <string name="letterboxd_friends_setting_ratings">Ratings</string>
+    <string name="letterboxd_friends_setting_watches">Watched without a rating</string>
+    <string name="letterboxd_friends_setting_reviews">Reviews</string>
+    <string name="letterboxd_friends_setting_likes">Likes</string>
+    <string name="letterboxd_friends_setting_types">Activity types</string>
+    <string name="letterboxd_friends_setting_types_description">Which friend activity puts a film in the row.</string>
+    <string name="letterboxd_friends_setting_max">Maximum number of posters</string>
+    <string name="letterboxd_friends_setting_max_value">%1$d posters</string>
+    <string name="letterboxd_friends_setting_period">Period</string>
+    <string name="letterboxd_friends_setting_period_description">Only activity from this period is shown.</string>
+    <string name="letterboxd_friends_setting_period_value">Last %1$d days</string>
+    <string name="letterboxd_friends_setting_group">Group by film</string>
+    <string name="letterboxd_friends_setting_group_description">One poster per film with every friend’s rating. Off: one poster per friend activity.</string>
+    <string name="letterboxd_friends_setting_min_rating">Minimum rating</string>
+    <string name="letterboxd_friends_setting_min_rating_description">Hides ratings below this value. Activity without a rating follows the “Watched without a rating” switch.</string>
+    <string name="letterboxd_friends_setting_min_rating_none">None</string>
+    <string name="letterboxd_friends_setting_hide_watched">Hide films I’ve already seen</string>
+    <string name="letterboxd_friends_setting_hide_watched_description">Uses Nuvio’s watched state and your latest Letterboxd diary entries.</string>
+    <string name="letterboxd_friends_setting_refresh">Refresh</string>
+    <string name="letterboxd_friends_setting_refresh_description">The last data is shown at once from the cache, then updated in the background.</string>
+    <string name="letterboxd_friends_refresh_on_launch">Once at launch</string>
+    <string name="letterboxd_friends_refresh_every_visit">Each time I open Home</string>
+    <string name="letterboxd_friends_refresh_with_delay">Each time I open Home, after a delay</string>
+    <string name="letterboxd_friends_setting_delay">Delay between refreshes</string>
+    <string name="letterboxd_friends_setting_delay_value">%1$d min</string>
+    <string name="letterboxd_friends_setting_note">To avoid being blocked by Cloudflare, automatic refreshes are at least one minute apart, at most 5 pages of activity are read, and new films are identified about 10 at a time (the others when you click them or at the next refresh).</string>
+</resources>

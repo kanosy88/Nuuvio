@@ -32,6 +32,10 @@ internal actual object LetterboxdPlatform {
 
     actual fun writeState(value: String?) = store.putString(stateKey, value)
 
+    actual fun readPreference(name: String): String? = store.getString("pref_$name")
+
+    actual fun writePreference(name: String, value: String?) = store.putString("pref_$name", value)
+
     actual fun readCache(name: String): String? {
         val file = cacheFolder.resolve(safeName(name))
         return if (Files.exists(file)) runCatching { Files.readString(file) }.getOrNull() else null

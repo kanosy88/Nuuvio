@@ -261,6 +261,12 @@ object LetterboxdRepository {
         }
     }
 
+    /** Any cached copy of [slug] (ids and title never change), without network; null when never fetched. */
+    internal suspend fun cachedFilm(slug: String): LetterboxdFilm? {
+        awaitLoaded()
+        return index.staleFilm(slug)
+    }
+
     /**
      * Runs [block] with the authenticated client. Throws [LetterboxdError.NotConnected] without cookies;
      * an expired session flips [state] to [LetterboxdConnectionStatus.ReconnectRequired].

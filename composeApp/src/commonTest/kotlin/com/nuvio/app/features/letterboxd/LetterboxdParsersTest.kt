@@ -179,13 +179,51 @@ class LetterboxdParsersTest {
         """.trimIndent()
         val items = LetterboxdParsers.parseActivity(html)
         assertEquals(3, items.size)
-        assertEquals(LetterboxdActivityItem("howatdk", "ray-gunn", "Ray Gunn (2026)", LetterboxdActivityType.Review, 4.0, "2026-11-19T05:55:47.536Z"), items[0])
+        assertEquals(LetterboxdActivityItem("howatdk", "ray-gunn", "Ray Gunn (2026)", LetterboxdActivityType.Review, 4.0, "2026-11-19T05:55:47.536Z", activityId = "1", memberName = "D"), items[0])
         assertEquals(LetterboxdActivityType.ReviewLike, items[1].type)
         assertEquals("jaimerebanal", items[1].member)
         assertEquals("i-am-sam", items[1].filmSlug)
         assertEquals("I Am Sam", items[1].filmName)
         assertNull(items[1].rating)
-        assertEquals(LetterboxdActivityItem("nadreviews", "misty-green", "Misty Green", LetterboxdActivityType.Rating, 2.0, "2026-11-19T03:49:01.847Z"), items[2])
+        assertEquals(LetterboxdActivityItem("nadreviews", "misty-green", "Misty Green", LetterboxdActivityType.Rating, 2.0, "2026-11-19T03:49:01.847Z", activityId = "3", memberName = "Nadia"), items[2])
+        assertFalse(items[1].liked)
+    }
+
+    /** Shape of the live fragment (Nov 2026): avatar with alt, "watched, liked and rated", watchlist rows, end marker. */
+    @Test
+    fun parsesActivityAvatarsLikesAndEnd() {
+        val html = """
+            <section data-activity-id="13467370016" class="activity-row -basic" > <div class="table-activity-user"> <a class="avatar -a24" href="/friendone/" > <img src="https://a.ltrbxd.com/avatar/x-0-48-0-48-crop.jpg?v=1" alt="Friend One" width="24" height="24" /> </a> </div> <div class="table-activity-description"> <p class="activity-summary"> <a href="/friendone/" class="name"><strong>Friend One</strong></a> <a href="/friendone/film/some-film/" class="target"> <span class="context"> rewatched, liked and rated </span> Some Film </a> <span class="rating -tiny rated-9"> ★★★★½ </span> on Wednesday <span class="nobr">Nov 11, 2026</span> </p"> </div> <time datetime="2026-11-11T16:12:27.277Z" class="time timeago">x</time> </section>
+            <section data-activity-id="13344674031" class="activity-row -basic" > <div class="table-activity-user"> <a class="avatar -a24" href="/friendone/" > <img src="https://a.ltrbxd.com/avatar/x.jpg" alt="Friend One" width="24" height="24" /> </a> </div> <div class="table-activity-description"> <p class="activity-summary"> <a href="/friendone/" class="name"><strong>Friend One</strong></a> added <a href="/film/atonement/" class="target">Atonement</a> to <a href="/friendone/watchlist/"" class="secondary">their watchlist</a> </p"> </div> <time datetime="2026-10-28T20:49:39.563Z" class="time">x</time> </section>
+            <section class="activity-row js-pagination-end"><p class='end-of-activity'>End of recent activity</p></section>
+        """.trimIndent()
+        val items = LetterboxdParsers.parseActivity(html)
+        assertEquals(2, items.size)
+        val rated = items[0]
+        assertEquals(LetterboxdActivityType.Rating, rated.type)
+        assertEquals(4.5, rated.rating)
+        assertTrue(rated.liked)
+        assertTrue(rated.rewatch)
+        assertEquals("13467370016", rated.activityId)
+        assertEquals("Friend One", rated.memberName)
+        assertEquals("https://a.ltrbxd.com/avatar/x-0-48-0-48-crop.jpg?v=1", rated.avatarUrl)
+        assertEquals("Some Film", rated.filmName)
+        assertEquals(LetterboxdActivityType.Watchlist, items[1].type)
+        assertEquals("atonement", items[1].filmSlug)
+        assertTrue(LetterboxdParsers.isActivityEnd(html))
+        assertFalse(LetterboxdParsers.isActivityEnd(html.substringBefore("<section class=\"activity-row js-pagination-end")))
+    }
+
+    @Test
+    fun filmPageTmdbTypeMarksTvShows() {
+        val film = LetterboxdParsers.parseFilmPage(
+            "cyberpunk-edgerunners",
+            // Live shape (Nov 2026): empty TMDB id, type "movie", but a TMDB TV link.
+            """<body class="film" data-tmdb-id="" data-tmdb-type="movie"><a href="https://www.themoviedb.org/tv/105248/" data-track-action="TMDB">TMDB</a><a href="https://www.imdb.com/title/tt12590266/maindetails">IMDb</a></body>""",
+            null,
+        )
+        assertTrue(film.isTvShow)
+        assertNull(film.tmdbId)
     }
 
     @Test

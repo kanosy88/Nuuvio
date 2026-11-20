@@ -17,6 +17,9 @@ internal actual object LetterboxdPlatform {
     actual fun readState(): String? = null
     actual fun writeState(value: String?) = Unit
 
+    actual fun readPreference(name: String): String? = null
+    actual fun writePreference(name: String, value: String?) = Unit
+
     actual fun readCache(name: String): String? = null
     actual fun writeCache(name: String, value: String) = Unit
 }

@@ -182,4 +182,23 @@ class LetterboxdClientTest {
         assertNull(reloaded.film("the-matrix", 10))
         assertEquals("the-matrix", reloaded.staleFilm("the-matrix")?.slug)
     }
+
+    @Test
+    fun followingActivityPageUsesAfterCursorAndDetectsEnd() = runTest {
+        val row = """<section data-activity-id="42" class="activity-row -basic" > <a class="avatar -a24" href="/ann/" ><img alt="Ann" src="a.jpg" /></a> <p class="activity-summary"> <a href="/ann/" class="name"><strong>Ann</strong></a> <a href="/ann/film/heat/" class="target"> <span class="context"> watched </span> Heat </a> </p"> <time datetime="2026-11-19T03:49:01.847Z" class="time">x</time> </section>"""
+        val engine = FakeEngine { request ->
+            if (request.path.contains("after=")) response(200, row + """<section class="activity-row js-pagination-end"><p class='end-of-activity'>End</p></section>""")
+            else response(200, row)
+        }
+        val first = client(engine).fetchFollowingActivityPage("me", after = null)
+        assertTrue(first.hasMore)
+        assertEquals("42", first.items.single().activityId)
+        val second = client(engine).fetchFollowingActivityPage("me", after = "42")
+        assertFalse(second.hasMore)
+        assertEquals(
+            listOf("/ajax/activity-pagination/me/following/", "/ajax/activity-pagination/me/following/?after=42"),
+            engine.requests.map { it.path },
+        )
+        assertFailsWith<IllegalArgumentException> { client(engine).fetchFollowingActivityPage("me", after = "1&x=2") }
+    }
 }

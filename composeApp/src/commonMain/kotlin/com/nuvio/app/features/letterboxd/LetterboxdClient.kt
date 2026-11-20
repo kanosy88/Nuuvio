@@ -203,11 +203,20 @@ internal class LetterboxdClient(
      * Raw activity rows of the accounts the member follows (one request). Requires a valid Cloudflare clearance.
      * Parsing is best-effort; see [LetterboxdParsers.parseActivity].
      */
-    suspend fun fetchFollowingActivity(username: String): List<LetterboxdActivityItem> {
+    suspend fun fetchFollowingActivity(username: String): List<LetterboxdActivityItem> =
+        fetchFollowingActivityPage(username, after = null).items
+
+    /**
+     * One page (≈20 rows) of the following activity; the next page is `?after=<last data-activity-id>`
+     * (verified Nov 2026). Public fragment, sent with the session cookies like the website does.
+     */
+    suspend fun fetchFollowingActivityPage(username: String, after: String?): LetterboxdActivityPage {
+        require(after == null || Regex("\\d+").matches(after)) { "Invalid activity cursor" }
+        val query = after?.let { "?after=$it" }.orEmpty()
         val response = transport.execute(
             LetterboxdHttpRequest(
                 "GET",
-                "/ajax/activity-pagination/$username/following/",
+                "/ajax/activity-pagination/$username/following/$query",
                 headers = mapOf("X-Requested-With" to "XMLHttpRequest", "Accept" to "text/html, */*; q=0.01"),
             ),
             authenticated = true,
@@ -215,7 +224,8 @@ internal class LetterboxdClient(
         )
         handleAuthStatus(response)
         if (response.status != 200) throw statusError(response.status)
-        return LetterboxdParsers.parseActivity(response.body)
+        val items = LetterboxdParsers.parseActivity(response.body)
+        return LetterboxdActivityPage(items, hasMore = items.isNotEmpty() && !LetterboxdParsers.isActivityEnd(response.body))
     }
 
     // ---------------------------------------------------------------- writes

@@ -105,6 +105,9 @@ internal object LetterboxdParsers {
             averageRating = aggregate?.get("ratingValue")?.jsonPrimitive?.doubleOrNull,
             ratingCount = aggregate?.get("ratingCount")?.jsonPrimitive?.intOrNull,
             reviewCount = aggregate?.get("reviewCount")?.jsonPrimitive?.intOrNull,
+            // TV entries (miniseries…) carry `data-tmdb-id=""` + `data-tmdb-type="movie"` and a themoviedb.org/tv/ link.
+            tmdbType = if (Regex("""themoviedb\.org/tv/\d+""").containsMatchIn(html)) "tv"
+            else Regex("""data-tmdb-type="(\w+)"""").find(html)?.groupValues?.get(1),
         )
     }
 
@@ -201,6 +204,13 @@ internal object LetterboxdParsers {
                     ?: return@mapNotNull null
                 val rating = Regex("""\brated-(\d{1,2})\b""").find(row)?.groupValues?.get(1)?.toIntOrNull()
                     ?.takeIf { it in 1..10 }?.let { it / 2.0 }
+                val activityId = Regex("""data-activity-id="(\d+)"""").find(match.value)?.groupValues?.get(1)
+                val avatarImage = Regex("""<a class="avatar[^"]*"[^>]*>\s*(<img[^>]*>)""").find(row)?.groupValues?.get(1).orEmpty()
+                val avatarUrl = Regex("""src="([^"]+)"""").find(avatarImage)?.groupValues?.get(1)?.let(::decodeEntities)
+                val memberName = Regex("""class="name"><strong>([^<]+)</strong>""").find(row)?.groupValues?.get(1)
+                    ?.let(::decodeEntities)?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: Regex("""alt="([^"]+)"""").find(avatarImage)?.groupValues?.get(1)?.let(::decodeEntities)
+                        ?.trim()?.takeIf { it.isNotEmpty() }
 
                 if (classes.contains("-review")) {
                     val slug = Regex("""data-item-slug="([^"]+)"""").find(row)?.groupValues?.get(1)
@@ -213,6 +223,10 @@ internal object LetterboxdParsers {
                         type = LetterboxdActivityType.Review,
                         rating = rating,
                         timestamp = timestamp,
+                        activityId = activityId,
+                        memberName = memberName,
+                        avatarUrl = avatarUrl,
+                        liked = Regex("""class="[^"]*\bicon-liked\b""").containsMatchIn(row),
                     )
                 }
 
@@ -244,8 +258,18 @@ internal object LetterboxdParsers {
                     // For a liked review the stars belong to the review's author, not to the actor.
                     rating = rating.takeIf { type != LetterboxdActivityType.ReviewLike && type != LetterboxdActivityType.Comment },
                     timestamp = timestamp,
+                    activityId = activityId,
+                    memberName = memberName,
+                    avatarUrl = avatarUrl,
+                    // "watched, liked and rated" / "rewatched and liked": the film itself is liked.
+                    liked = type != LetterboxdActivityType.ReviewLike && type != LetterboxdActivityType.Comment &&
+                        Regex("""\bliked\b""").containsMatchIn(text),
+                    rewatch = "rewatched" in text,
                 )
             }.toList()
+
+    /** True when the activity fragment ends with "End of recent activity" (no `?after=` page left). */
+    fun isActivityEnd(html: String): Boolean = html.contains("js-pagination-end") || html.contains("end-of-activity")
 
     /**
      * `/csi/film/<slug>/friend-activity/?esiAllowUser=true` (verified Nov 2026, signed in): one

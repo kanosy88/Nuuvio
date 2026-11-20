@@ -1,0 +1,42 @@
+<resources>
+    <string name="letterboxd_friends_row_title">Récemment notés par mes amis</string>
+    <string name="letterboxd_friends_refresh">Rafraîchir</string>
+    <string name="letterboxd_friends_empty">Aucune activité récente des comptes que vous suivez pour ces réglages.</string>
+    <string name="letterboxd_friends_loading">Chargement de l’activité de vos amis…</string>
+    <string name="letterboxd_friends_error">Rafraîchissement impossible : %1$s</string>
+    <string name="letterboxd_friends_open_failed">Impossible d’ouvrir ce film dans Nuvio : %1$s</string>
+    <string name="letterboxd_friends_more">+%1$d</string>
+    <string name="letterboxd_friends_liked">Aimé</string>
+    <string name="letterboxd_friends_reviewed">Critiqué</string>
+    <string name="letterboxd_friends_watched">Vu</string>
+
+    <string name="letterboxd_section_friends">RÉCEMMENT NOTÉS PAR MES AMIS</string>
+    <string name="letterboxd_friends_setting_enabled">Afficher la bande sur l’accueil</string>
+    <string name="letterboxd_friends_setting_enabled_description">Les films récemment notés, vus ou critiqués par les comptes que vous suivez. Films uniquement.</string>
+    <string name="letterboxd_friends_setting_ratings">Notes</string>
+    <string name="letterboxd_friends_setting_watches">Vus sans note</string>
+    <string name="letterboxd_friends_setting_reviews">Critiques</string>
+    <string name="letterboxd_friends_setting_likes">Likes</string>
+    <string name="letterboxd_friends_setting_types">Types d’activité</string>
+    <string name="letterboxd_friends_setting_types_description">Quelles activités de vos amis font entrer un film dans la bande.</string>
+    <string name="letterboxd_friends_setting_max">Nombre maximal d’affiches</string>
+    <string name="letterboxd_friends_setting_max_value">%1$d affiches</string>
+    <string name="letterboxd_friends_setting_period">Période</string>
+    <string name="letterboxd_friends_setting_period_description">Seule l’activité de cette période est affichée.</string>
+    <string name="letterboxd_friends_setting_period_value">%1$d derniers jours</string>
+    <string name="letterboxd_friends_setting_group">Regrouper par film</string>
+    <string name="letterboxd_friends_setting_group_description">Une affiche par film avec la note de chaque ami. Désactivé : une affiche par activité d’ami.</string>
+    <string name="letterboxd_friends_setting_min_rating">Note minimale</string>
+    <string name="letterboxd_friends_setting_min_rating_description">Masque les notes inférieures. L’activité sans note suit l’interrupteur « Vus sans note ».</string>
+    <string name="letterboxd_friends_setting_min_rating_none">Aucune</string>
+    <string name="letterboxd_friends_setting_hide_watched">Masquer les films que j’ai déjà vus</string>
+    <string name="letterboxd_friends_setting_hide_watched_description">Utilise l’état « vu » de Nuvio et vos dernières entrées de journal Letterboxd.</string>
+    <string name="letterboxd_friends_setting_refresh">Rafraîchissement</string>
+    <string name="letterboxd_friends_setting_refresh_description">Les dernières données s’affichent aussitôt depuis le cache, puis sont mises à jour en arrière-plan.</string>
+    <string name="letterboxd_friends_refresh_on_launch">Une fois au lancement</string>
+    <string name="letterboxd_friends_refresh_every_visit">À chaque ouverture de l’accueil</string>
+    <string name="letterboxd_friends_refresh_with_delay">À chaque ouverture de l’accueil, après un délai</string>
+    <string name="letterboxd_friends_setting_delay">Délai entre deux rafraîchissements</string>
+    <string name="letterboxd_friends_setting_delay_value">%1$d min</string>
+    <string name="letterboxd_friends_setting_note">Pour éviter un blocage par Cloudflare, les rafraîchissements automatiques sont espacés d’au moins une minute, au plus 5 pages d’activité sont lues, et les nouveaux films sont identifiés une dizaine à la fois (les autres au clic ou au rafraîchissement suivant).</string>
+</resources>
