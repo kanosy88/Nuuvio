@@ -433,7 +433,7 @@ class LetterboxdWatchlistSyncEngineTest {
         suspend fun engine(library: WatchlistSyncLibrary, store: WatchlistSyncSnapshotStore): LetterboxdWatchlistSyncEngine {
             val transport = LetterboxdTransport(
                 engine = { handle(it) },
-                minIntervalMs = 0,
+                limits = { LetterboxdRateLimits(requestGapMs = 0) },
                 nowMs = { clock },
                 sleep = { sleeps += it; clock += it },
             )
@@ -444,8 +444,7 @@ class LetterboxdWatchlistSyncEngineTest {
                 remote = ClientRemote(client, transport, LetterboxdFilmResolver(client, index)),
                 library = library,
                 store = store,
-                readIntervalMs = READ_MS,
-                writeIntervalMs = WRITE_MS,
+                limits = { LetterboxdRateLimits(syncReadGapMs = READ_MS.toInt(), syncWriteGapMs = WRITE_MS.toInt()) },
                 nowMs = { clock },
             )
         }

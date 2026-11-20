@@ -68,6 +68,7 @@ object LetterboxdRepository {
 
     private suspend fun load() = loadMutex.withLock {
         if (mutableState.value.isLoaded) return@withLock
+        LetterboxdRateLimitSettings.ensureLoaded()
         withContext(Dispatchers.Default) {
             val credentials = runCatching { LetterboxdPlatform.readSecret() }
                 .onFailure { log.w { "Could not read Letterboxd credentials: ${it::class.simpleName}" } }

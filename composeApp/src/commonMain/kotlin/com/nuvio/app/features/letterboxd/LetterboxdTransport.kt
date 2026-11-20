@@ -67,7 +67,7 @@ internal class KtorLetterboxdHttpEngine(
  */
 internal class LetterboxdTransport(
     private val engine: LetterboxdHttpEngine,
-    private val minIntervalMs: Long = 350L,
+    private val limits: () -> LetterboxdRateLimits = { LetterboxdRateLimitSettings.current },
     private val nowMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
     private val sleep: suspend (Long) -> Unit = { delay(it) },
 ) {
@@ -147,7 +147,7 @@ internal class LetterboxdTransport(
         headers.putAll(request.headers)
 
         throttle.withLock {
-            val wait = lastRequestAt + maxOf(minIntervalMs, pacingMs) - nowMs()
+            val wait = lastRequestAt + maxOf(limits().requestGapMs.toLong(), pacingMs) - nowMs()
             if (wait > 0) sleep(wait)
             lastRequestAt = nowMs()
         }

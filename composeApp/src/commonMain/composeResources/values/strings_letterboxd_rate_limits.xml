@@ -1,0 +1,21 @@
+<resources>
+    <string name="letterboxd_section_rate_limits">NETWORK / RATE LIMITS</string>
+    <string name="letterboxd_rl_help">Lower values make Letterboxd requests faster but raise the risk of a Cloudflare challenge or a temporary rate limit (HTTP 429). If you see “Just a moment…” or rate-limit errors, increase these values. Changes apply from the next request.</string>
+    <string name="letterboxd_rl_request_gap">Gap between any two requests</string>
+    <string name="letterboxd_rl_sync_read_gap">Watchlist sync: gap between reads</string>
+    <string name="letterboxd_rl_sync_write_gap">Watchlist sync: gap between writes</string>
+    <string name="letterboxd_rl_friends_pages">Friends row: activity pages per refresh</string>
+    <string name="letterboxd_rl_friends_page_gap">Friends row: gap between activity pages</string>
+    <string name="letterboxd_rl_friends_batch">Friends row: films identified per refresh</string>
+    <string name="letterboxd_rl_friends_resolve_gap">Friends row: gap between film lookups</string>
+    <string name="letterboxd_rl_friends_min_auto">Friends row: minimum time between automatic refreshes</string>
+    <string name="letterboxd_rl_own_diary">Own diary cache (for “hide films I’ve seen”)</string>
+    <string name="letterboxd_rl_personal_cache">Film page: personal state cache</string>
+    <string name="letterboxd_rl_value_seconds">%1$s s</string>
+    <string name="letterboxd_rl_decimal_separator">.</string>
+    <string name="letterboxd_rl_value_pages">%1$d pages</string>
+    <string name="letterboxd_rl_value_films">%1$d films</string>
+    <string name="letterboxd_rl_value_minutes">%1$d min</string>
+    <string name="letterboxd_rl_value_off">Off</string>
+    <string name="letterboxd_rl_restore">Restore defaults</string>
+</resources>

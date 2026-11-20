@@ -38,5 +38,5 @@
     <string name="letterboxd_friends_refresh_with_delay">À chaque ouverture de l’accueil, après un délai</string>
     <string name="letterboxd_friends_setting_delay">Délai entre deux rafraîchissements</string>
     <string name="letterboxd_friends_setting_delay_value">%1$d min</string>
-    <string name="letterboxd_friends_setting_note">Pour éviter un blocage par Cloudflare, les rafraîchissements automatiques sont espacés d’au moins une minute, au plus 5 pages d’activité sont lues, et les nouveaux films sont identifiés une dizaine à la fois (les autres au clic ou au rafraîchissement suivant).</string>
+    <string name="letterboxd_friends_setting_note">Pour éviter un blocage par Cloudflare, les rafraîchissements automatiques sont espacés, seules quelques pages d’activité sont lues, et les nouveaux films sont identifiés par petits lots (les autres au clic ou au rafraîchissement suivant). Les limites exactes se règlent dans Réseau / limites de débit, ci-dessous.</string>
 </resources>

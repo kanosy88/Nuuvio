@@ -38,5 +38,5 @@
     <string name="letterboxd_friends_refresh_with_delay">Each time I open Home, after a delay</string>
     <string name="letterboxd_friends_setting_delay">Delay between refreshes</string>
     <string name="letterboxd_friends_setting_delay_value">%1$d min</string>
-    <string name="letterboxd_friends_setting_note">To avoid being blocked by Cloudflare, automatic refreshes are at least one minute apart, at most 5 pages of activity are read, and new films are identified about 10 at a time (the others when you click them or at the next refresh).</string>
+    <string name="letterboxd_friends_setting_note">To avoid being blocked by Cloudflare, automatic refreshes are spaced out, only a few pages of activity are read, and new films are identified in small batches (the others when you click them or at the next refresh). The exact limits are in Network / rate limits, below.</string>
 </resources>

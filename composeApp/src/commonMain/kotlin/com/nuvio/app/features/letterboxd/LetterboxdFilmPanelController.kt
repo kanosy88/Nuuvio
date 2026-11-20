@@ -45,7 +45,7 @@ internal class ClientLetterboxdFilmSource(
     private val requireCredentials: suspend () -> Unit = {},
     private val nowMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
     private val histogramTtlMs: Long = 6L * 60 * 60 * 1000,
-    private val personalTtlMs: Long = 90_000L,
+    private val limits: () -> LetterboxdRateLimits = { LetterboxdRateLimitSettings.current },
 ) : LetterboxdFilmSource {
     private val histogramCache = LinkedHashMap<String, Pair<Long, LetterboxdRatingHistogram?>>()
     private val cacheLock = Mutex()
@@ -87,7 +87,7 @@ internal class ClientLetterboxdFilmSource(
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T : Any> cached(key: String, block: suspend () -> T): T {
         cacheLock.withLock {
-            personalCache[key]?.takeIf { nowMs() - it.first < personalTtlMs }?.let { return it.second as T }
+            personalCache[key]?.takeIf { nowMs() - it.first < limits().personalCacheSec * 1_000L }?.let { return it.second as T }
         }
         val value = auth(block)
         cacheLock.withLock {

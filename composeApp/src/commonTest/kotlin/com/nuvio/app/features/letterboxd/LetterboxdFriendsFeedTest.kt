@@ -165,7 +165,7 @@ class LetterboxdFriendsFeedTest {
         saveSettings = { store.settings = it },
         nowMs = clock,
         pause = { pauses += it },
-        resolveBatch = resolveBatch,
+        limits = { LetterboxdRateLimits(friendsResolveBatch = resolveBatch) },
     )
 
     @Test

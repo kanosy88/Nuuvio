@@ -237,11 +237,12 @@ internal class RepositoryLetterboxdFriendsSource : LetterboxdFriendsSource {
  * [LetterboxdFriendsSettings.refreshMode], manual refresh.
  *
  * Cloudflare reacts to bursts, so the network use is bounded on purpose:
- * - activity: one request per page (`?after=` cursor), at most [maxPages] pages, [pageGapMs] apart, stopping
- *   at the end of the period or of the stream;
- * - films (slug → TMDB/IMDb ids + poster): persistent cache first, then at most [resolveBatch] film pages per
- *   refresh, [resolveGapMs] apart; the rest is resolved at the next refresh or when a poster is clicked;
- * - automatic refreshes never closer than [minAutoIntervalMs]; any challenge / rate limit stops the refresh.
+ * All the limits come from [LetterboxdRateLimits] (Settings › Letterboxd › Network / rate limits):
+ * - activity: one request per page (`?after=` cursor), at most `friendsMaxPages` pages, `friendsPageGapMs` apart,
+ *   stopping at the end of the period or of the stream;
+ * - films (slug → TMDB/IMDb ids + poster): persistent cache first, then at most `friendsResolveBatch` film pages per
+ *   refresh, `friendsResolveGapMs` apart; the rest is resolved at the next refresh or when a poster is clicked;
+ * - automatic refreshes never closer than `friendsMinAutoRefreshSec`; any challenge / rate limit stops the refresh.
  */
 internal class LetterboxdFriendsFeed(
     private val source: LetterboxdFriendsSource,
@@ -252,12 +253,7 @@ internal class LetterboxdFriendsFeed(
     private val saveSettings: suspend (String) -> Unit,
     private val nowMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
     private val pause: suspend (Long) -> Unit = { delay(it) },
-    private val maxPages: Int = 5,
-    private val pageGapMs: Long = 1_500L,
-    private val resolveBatch: Int = 10,
-    private val resolveGapMs: Long = 1_500L,
-    private val minAutoIntervalMs: Long = 60_000L,
-    private val myRecentMaxAgeMs: Long = 6L * 60 * 60 * 1000,
+    private val limits: () -> LetterboxdRateLimits = { LetterboxdRateLimitSettings.current },
 ) {
     private val log = Logger.withTag("LetterboxdFriends")
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -274,6 +270,7 @@ internal class LetterboxdFriendsFeed(
 
     suspend fun load() = loadMutex.withLock {
         if (mutableState.value.isLoaded) return@withLock
+        LetterboxdRateLimitSettings.ensureLoaded()
         val settings = loadSettings()?.let { runCatching { json.decodeFromString(LetterboxdFriendsSettings.serializer(), it) }.getOrNull() }
             ?: LetterboxdFriendsSettings()
         val cache = loadCache()?.let { runCatching { json.decodeFromString(LetterboxdFriendsCache.serializer(), it) }.getOrNull() }
@@ -299,7 +296,7 @@ internal class LetterboxdFriendsFeed(
             val current = mutableState.value
             if (!current.settings.enabled || current.isRefreshing) return@launch
             val now = nowMs()
-            if (now - lastAttemptAt < minAutoIntervalMs) return@launch
+            if (now - lastAttemptAt < limits().friendsMinAutoRefreshSec * 1_000L) return@launch
             val due = when (current.settings.refreshMode) {
                 LetterboxdFriendsRefreshMode.OnLaunch -> !refreshedThisSession
                 LetterboxdFriendsRefreshMode.EveryVisit -> true
@@ -331,7 +328,7 @@ internal class LetterboxdFriendsFeed(
             val items = fetchActivity(user, settings.periodDays)
             val accountChanged = username != null && username != user
             username = user
-            val myRecent = if (settings.hideWatchedByMe && (accountChanged || nowMs() - myRecentFetchedAt >= myRecentMaxAgeMs)) {
+            val myRecent = if (settings.hideWatchedByMe && (accountChanged || nowMs() - myRecentFetchedAt >= limits().ownDiaryCacheMin * MINUTE_MS)) {
                 try {
                     source.myRecentSlugs(user).also { myRecentFetchedAt = nowMs() }
                 } catch (error: LetterboxdException) {
@@ -371,8 +368,8 @@ internal class LetterboxdFriendsFeed(
         val since = nowMs() - periodDays * DAY_MS
         val collected = mutableListOf<LetterboxdActivityItem>()
         var after: String? = null
-        for (page in 1..maxPages) {
-            if (page > 1) pause(pageGapMs)
+        for (page in 1..limits().friendsMaxPages) {
+            if (page > 1) pause(limits().friendsPageGapMs.toLong())
             val result = source.activityPage(user, after)
             collected += result.items
             val oldest = result.items.mapNotNull { parseActivityInstant(it.timestamp) }.minOrNull()
@@ -387,11 +384,11 @@ internal class LetterboxdFriendsFeed(
     /** Resolves (with the network) the first unresolved posters of the row, in a small spaced batch. */
     private suspend fun resolveVisibleFilms() {
         var fetched = 0
-        while (fetched < resolveBatch) {
+        while (fetched < limits().friendsResolveBatch) {
             val state = mutableState.value
             val next = buildLetterboxdFriendsEntries(state, nowMs())
                 .firstOrNull { it.film == null && it.slug !in state.excludedSlugs } ?: return
-            if (fetched > 0) pause(resolveGapMs)
+            if (fetched > 0) pause(limits().friendsResolveGapMs.toLong())
             fetched++
             val film = source.fetchFilm(next.slug)
             applyResolved(next.slug, film)

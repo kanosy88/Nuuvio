@@ -83,6 +83,7 @@ internal fun LazyListScope.letterboxdSettingsContent(isTablet: Boolean) {
         }
     }
     letterboxdFriendsSettingsContent(isTablet)
+    letterboxdRateLimitsSettingsContent(isTablet)
 }
 
 /** Click handler for the Integrations entry, or null when Letterboxd isn't supported on this platform. */

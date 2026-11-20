@@ -30,7 +30,7 @@ class LetterboxdClientTest {
         cookies: Map<String, String> = linkedMapOf("letterboxd.user.CURRENT" to "session", LETTERBOXD_CSRF_COOKIE to "tok", LETTERBOXD_CLEARANCE_COOKIE to "cf"),
         onAuthExpired: suspend () -> Unit = {},
     ): LetterboxdClient {
-        val transport = LetterboxdTransport(engine, minIntervalMs = 0)
+        val transport = LetterboxdTransport(engine, limits = { LetterboxdRateLimits(requestGapMs = 0) })
         transport.configure(cookies, "UA/1.0")
         return LetterboxdClient(transport, onAuthExpired)
     }

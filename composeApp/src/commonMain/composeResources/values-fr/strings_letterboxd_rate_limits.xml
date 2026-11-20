@@ -1,0 +1,21 @@
+<resources>
+    <string name="letterboxd_section_rate_limits">RÉSEAU / LIMITES DE DÉBIT</string>
+    <string name="letterboxd_rl_help">Des valeurs plus basses rendent les requêtes Letterboxd plus rapides, mais augmentent le risque de défi Cloudflare ou de limitation temporaire (HTTP 429). En cas de « Just a moment… » ou d’erreur de limitation, augmentez ces valeurs. Les changements s’appliquent à partir de la requête suivante.</string>
+    <string name="letterboxd_rl_request_gap">Délai entre deux requêtes quelconques</string>
+    <string name="letterboxd_rl_sync_read_gap">Synchro watchlist : délai entre les lectures</string>
+    <string name="letterboxd_rl_sync_write_gap">Synchro watchlist : délai entre les écritures</string>
+    <string name="letterboxd_rl_friends_pages">Bande amis : pages d’activité par rafraîchissement</string>
+    <string name="letterboxd_rl_friends_page_gap">Bande amis : délai entre les pages d’activité</string>
+    <string name="letterboxd_rl_friends_batch">Bande amis : films identifiés par rafraîchissement</string>
+    <string name="letterboxd_rl_friends_resolve_gap">Bande amis : délai entre les recherches de films</string>
+    <string name="letterboxd_rl_friends_min_auto">Bande amis : délai minimal entre deux rafraîchissements automatiques</string>
+    <string name="letterboxd_rl_own_diary">Cache de mon journal (pour « masquer les films que j’ai vus »)</string>
+    <string name="letterboxd_rl_personal_cache">Page film : cache de l’état personnel</string>
+    <string name="letterboxd_rl_value_seconds">%1$s s</string>
+    <string name="letterboxd_rl_decimal_separator">,</string>
+    <string name="letterboxd_rl_value_pages">%1$d pages</string>
+    <string name="letterboxd_rl_value_films">%1$d films</string>
+    <string name="letterboxd_rl_value_minutes">%1$d min</string>
+    <string name="letterboxd_rl_value_off">Désactivé</string>
+    <string name="letterboxd_rl_restore">Rétablir les valeurs par défaut</string>
+</resources>

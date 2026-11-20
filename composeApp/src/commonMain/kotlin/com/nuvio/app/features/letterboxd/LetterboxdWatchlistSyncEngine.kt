@@ -113,15 +113,14 @@ internal data class WatchlistSyncReport(
 /**
  * Runs the watchlist sync: [analyze] reads both sides (watchlist pages, TMDB/IMDb ↔ slug matching, watched state)
  * and computes the plan shown in the preview; [apply] performs it after confirmation, tolerating partial failures.
- * All Letterboxd requests are spaced ([readIntervalMs], [writeIntervalMs]) and mappings are cached persistently by
- * the remote, so a retry after a Cloudflare challenge resumes cheaply.
+ * All Letterboxd requests are spaced ([LetterboxdRateLimits.syncReadGapMs], [LetterboxdRateLimits.syncWriteGapMs]) and
+ * mappings are cached persistently by the remote, so a retry after a Cloudflare challenge resumes cheaply.
  */
 internal class LetterboxdWatchlistSyncEngine(
     private val remote: LetterboxdWatchlistRemote,
     private val library: WatchlistSyncLibrary,
     private val store: WatchlistSyncSnapshotStore,
-    private val readIntervalMs: Long = 1_500L,
-    private val writeIntervalMs: Long = 2_000L,
+    private val limits: () -> LetterboxdRateLimits = { LetterboxdRateLimitSettings.current },
     private val maxPages: Int = 200,
     private val nowMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
 ) {
@@ -133,7 +132,7 @@ internal class LetterboxdWatchlistSyncEngine(
         val snapshotScope = snapshotScope(scope, username)
         val snapshot = store.load(snapshotScope)
         val movies = library.movies()
-        remote.paced(readIntervalMs) {
+        remote.paced(limits().syncReadGapMs.toLong()) {
             // 1. Watchlist, page by page.
             val watchlist = LinkedHashMap<String, LetterboxdWatchlistItem>()
             var announced: Int? = null
@@ -200,7 +199,7 @@ internal class LetterboxdWatchlistSyncEngine(
         var stoppedBy: LetterboxdError? = null
         val letterboxdActions = plan.actions.filter { it is WatchlistSyncAction.AddToLetterboxd || it is WatchlistSyncAction.RemoveFromLetterboxd }
         if (letterboxdActions.isNotEmpty()) {
-            remote.paced(writeIntervalMs) {
+            remote.paced(limits().syncWriteGapMs.toLong()) {
                 letterboxdActions.forEach { action ->
                     val outcome = stoppedBy?.let { WatchlistSyncResult.Outcome.NotAttempted(it) } ?: try {
                         applyLetterboxd(action, current)

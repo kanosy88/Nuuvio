@@ -169,7 +169,7 @@ class LetterboxdFilmPanelTest {
             if (request.path == "/imdb/tt8772262/") LetterboxdHttpResponse(302, mapOf("Location" to listOf("https://letterboxd.com/film/midsommar/")), "")
             else LetterboxdHttpResponse(404, emptyMap(), "")
         }
-        val client = LetterboxdClient(LetterboxdTransport(engine, minIntervalMs = 0))
+        val client = LetterboxdClient(LetterboxdTransport(engine, limits = { LetterboxdRateLimits(requestGapMs = 0) }))
         assertEquals("midsommar", client.resolveSlugForImdb("tt8772262"))
         assertNull(client.resolveSlugForImdb("tt0000001"))
     }
@@ -593,7 +593,7 @@ class LetterboxdFilmPanelTest {
         private fun form(request: LetterboxdHttpRequest) = request.body!!.split('&').associate { it.substringBefore('=') to it.substringAfter('=') }
 
         suspend fun client(): LetterboxdClient {
-            val transport = LetterboxdTransport({ handle(it) }, minIntervalMs = 0)
+            val transport = LetterboxdTransport({ handle(it) }, limits = { LetterboxdRateLimits(requestGapMs = 0) })
             if (account.hasCredentials) {
                 transport.configure(linkedMapOf("letterboxd.user.CURRENT" to "session", LETTERBOXD_CSRF_COOKIE to "tok"), "UA/1.0")
             }
