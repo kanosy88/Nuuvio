@@ -76,11 +76,12 @@ internal class ClientLetterboxdFilmSource(
     override suspend fun setWatched(film: LetterboxdFilm, watched: Boolean) = write { client.setWatched(film, watched); Unit }
     override suspend fun setInWatchlist(film: LetterboxdFilm, inWatchlist: Boolean) = write { client.setInWatchlist(film, inWatchlist) }
     override suspend fun setLiked(film: LetterboxdFilm, liked: Boolean) = write { client.setLiked(film, liked); Unit }
-    override suspend fun setRating(film: LetterboxdFilm, rating: Double?) = write { client.setRating(film, rating) }
+    override suspend fun setRating(film: LetterboxdFilm, rating: Double?) =
+        write { client.setRating(film, rating) }.also { if (rating != null) LetterboxdRatingActivity.record(film.slug, nowMs()) }
     override suspend fun createLogEntry(film: LetterboxdFilm, draft: LetterboxdLogEntryDraft) =
-        write { client.createLogEntry(film, draft); Unit }
+        write { client.createLogEntry(film, draft); Unit }.also { LetterboxdRatingActivity.record(film.slug, nowMs()) }
     override suspend fun updateLogEntry(film: LetterboxdFilm, id: String, draft: LetterboxdLogEntryDraft) =
-        write { client.updateLogEntry(film, id, draft) }
+        write { client.updateLogEntry(film, id, draft) }.also { LetterboxdRatingActivity.record(film.slug, nowMs()) }
 
     private val personalCache = LinkedHashMap<String, Pair<Long, Any>>()
 
@@ -161,6 +162,8 @@ internal class LetterboxdFilmPanelController(
     private val source: LetterboxdFilmSource,
     private val scope: CoroutineScope,
     private val onBecameWatched: suspend () -> Unit = {},
+    /** False for the end-of-film prompt (F5): no histogram nor friends' activity, fewer requests. */
+    private val includeCommunity: Boolean = true,
 ) {
     private val log = Logger.withTag("LetterboxdFilm")
     private val mutableState = MutableStateFlow(LetterboxdFilmPanelState())
@@ -213,6 +216,7 @@ internal class LetterboxdFilmPanelController(
             }
             mutableState.update { it.copy(phase = LetterboxdFilmPanelState.Phase.Ready, film = film) }
             loadPersonal()
+            if (!includeCommunity) return@launch
             val histogram = runCatchingLetterboxd { source.histogram(film) }
             mutableState.update { it.copy(histogram = histogram.getOrNull()) }
         }
@@ -236,7 +240,9 @@ internal class LetterboxdFilmPanelController(
         }
         personalJob = scope.launch {
             coroutineScope {
-                val friendsCall = async { runCatchingLetterboxd { source.friends(film) } }
+                val friendsCall = async {
+                    if (includeCommunity) runCatchingLetterboxd { source.friends(film) } else Result.success(emptyList())
+                }
                 val myState = runCatchingLetterboxd { source.myState(film) }
                 myState.exceptionOrNull()?.let { error ->
                     val code = (error as LetterboxdException).error

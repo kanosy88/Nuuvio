@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.LocalFold
 import com.nuvio.app.features.addons.AddonRepository
+import com.nuvio.app.features.letterboxd.ui.LetterboxdRatePromptPlayerEffect
 import com.nuvio.app.isDesktop
 import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.details.MetaScreenSettingsRepository
@@ -215,6 +216,7 @@ internal fun PlayerScreenContent(args: PlayerScreenArgs) {
             videoSize = videoSize,
         )
         runtime.BindPlayerRuntimeEffects()
+        LetterboxdRatePromptPlayerEffect(args) { runtime.playbackSnapshot }
         runtime.RenderPlayerRuntimeUi(
             partyPanelWidth = partyPanelWidth,
             partyPanelInset = partyPanelInset,

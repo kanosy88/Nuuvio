@@ -122,7 +122,7 @@ internal fun mirrorNativeWatchedToLetterboxd(meta: MetaDetails, watched: Boolean
 }
 
 /** Same matching as the detail block: TMDB id, IMDb id as fallback. */
-private suspend fun resolveLetterboxdFilm(meta: MetaDetails): LetterboxdFilm? {
+internal suspend fun resolveLetterboxdFilm(meta: MetaDetails): LetterboxdFilm? {
     val tmdbId = runCatching { TmdbService.ensureTmdbId(meta.id, "movie", meta.imdbId)?.toIntOrNull() }.getOrNull()
     val imdbId = (meta.imdbId ?: meta.id.substringBefore(':')).takeIf { Regex("tt\\d+").matches(it) }
     return ClientLetterboxdFilmSource.default.resolveFilm(tmdbId, imdbId)

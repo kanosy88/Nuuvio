@@ -26,9 +26,12 @@ internal class LetterboxdNativeSync(
     private val notify: suspend (Notice) -> Unit,
     /** Library removals made by the Letterboxd integration itself (not to be mirrored back onto the watchlist). */
     private val ownRemovals: LetterboxdLibraryEchoGuard = LetterboxdLibraryBridge.ownRemovals,
+    watchedGuard: LetterboxdLibraryEchoGuard = LetterboxdLibraryEchoGuard(ttlMs = 10 * 60_000L),
 ) {
     private val log = Logger.withTag("LetterboxdNative")
     private val mutex = Mutex()
+    /** Films just mirrored as "watched" (key = Nuvio id), so the end-of-film prompt and the observers write it once. */
+    private val watchedMirrors = watchedGuard
     private val mutableChanges = MutableSharedFlow<String>(extraBufferCapacity = 8)
 
     /** Slug of a film whose Letterboxd state was just written (the detail block reloads it). */
@@ -51,21 +54,77 @@ internal class LetterboxdNativeSync(
     }
 
     /** The native "watched" state of [target] changed (user action in Nuvio). */
-    fun watchedChanged(target: Target, watched: Boolean) =
+    fun watchedChanged(target: Target, watched: Boolean) {
+        if (!watched) watchedMirrors.consume(target.key, saved = true)
+        // Already mirrored a moment ago (end-of-film prompt F5, or this observer): a second "watched" write
+        // would be a duplicate. The mark is kept so a later observer of the same change also skips it.
+        if (watched && watchedMirrors.isMarked(target.key, saved = true)) return
         run(target, if (watched) Operation.Watched else Operation.Unwatched) { film ->
+            if (watched && watchedMirrors.isMarked(target.key, saved = true)) return@run
             source.setWatched(film, watched)
-            if (watched) {
-                // Re-read (the write cleared the cache): Letterboxd should have dropped it from the watchlist itself.
-                val state = source.myState(film)
-                if (state.watched && state.inWatchlist) source.setInWatchlist(film, false)
-                ownRemovals.mark(target.key)
-                val removal = runCatching { target.removeFromLibrary() }
-                    .onFailure { if (it is CancellationException) throw it }
-                    .getOrDefault(LetterboxdLibraryBridge.Result.Failed)
-                if (removal != LetterboxdLibraryBridge.Result.Removed) ownRemovals.consume(target.key)
-                if (removal != LetterboxdLibraryBridge.Result.NotInLibrary) notify(Notice.LibraryRemoval(removal))
+            if (watched) afterWatched(target, film)
+        }
+    }
+
+    /**
+     * F5 (end of a film in the player): makes sure the film is watched on Letterboxd with at most ONE
+     * "watched" write, then the usual follow-ups (watchlist, Nuvio library), exactly like [watchedChanged].
+     * Serialized with the native observers (same [mutex]): whichever comes first writes, the other skips.
+     * Returns the film when it is watched on Letterboxd (the rating prompt can follow), null otherwise
+     * (no account, reconnect needed, not on Letterboxd, failure — the last three are reported via [notify]).
+     */
+    suspend fun ensureWatched(target: Target): LetterboxdFilm? {
+        if (!source.account.value.hasCredentials) return null
+        return mutex.withLock {
+            if (source.account.value.status == LetterboxdConnectionStatus.ReconnectRequired) {
+                notify(Notice.ReconnectRequired(Operation.Watched))
+                return@withLock null
+            }
+            var film: LetterboxdFilm? = null
+            try {
+                film = target.resolveFilm()
+                if (film == null) {
+                    notify(Notice.NotOnLetterboxd(Operation.Watched))
+                    return@withLock null
+                }
+                if (watchedMirrors.isMarked(target.key, saved = true)) return@withLock film
+                val before = source.myState(film)
+                if (!before.watched) {
+                    source.setWatched(film, true)
+                    log.i { "Letterboxd Watched written (end of film)" }
+                }
+                afterWatched(target, film, if (before.watched) before else null)
+                film
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: LetterboxdException) {
+                if (error.error != LetterboxdError.NotConnected) {
+                    log.w { "Letterboxd Watched (end of film) failed: ${error.error}${error.status?.let { " (HTTP $it)" }.orEmpty()}" }
+                    notify(Notice.Failed(Operation.Watched, error.error, error.message?.takeIf { error.error == LetterboxdError.Rejected && it != error.error.name }))
+                }
+                null
+            } catch (error: IllegalArgumentException) {
+                notify(Notice.Failed(Operation.Watched, LetterboxdError.Rejected))
+                null
+            } finally {
+                film?.let { mutableChanges.tryEmit(it.slug) }
             }
         }
+    }
+
+    /** After "watched": out of the Letterboxd watchlist, then out of the Nuvio library (no echo). */
+    private suspend fun afterWatched(target: Target, film: LetterboxdFilm, known: LetterboxdFilmState? = null) {
+        // Re-read (the write cleared the cache): Letterboxd should have dropped it from the watchlist itself.
+        val state = known ?: source.myState(film)
+        if (state.watched && state.inWatchlist) source.setInWatchlist(film, false)
+        watchedMirrors.mark(target.key, saved = true)
+        ownRemovals.mark(target.key)
+        val removal = runCatching { target.removeFromLibrary() }
+            .onFailure { if (it is CancellationException) throw it }
+            .getOrDefault(LetterboxdLibraryBridge.Result.Failed)
+        if (removal != LetterboxdLibraryBridge.Result.Removed) ownRemovals.consume(target.key)
+        if (removal != LetterboxdLibraryBridge.Result.NotInLibrary) notify(Notice.LibraryRemoval(removal))
+    }
 
     /** [target] was added to / removed from the Nuvio library (user action in Nuvio). */
     fun libraryChanged(target: Target, saved: Boolean) {
@@ -132,6 +191,12 @@ internal class LetterboxdLibraryEchoGuard(
     /** True (and forgets it) when [key] was changed that way by the integration less than [ttlMs] ago. */
     fun consume(key: String, saved: Boolean = false): Boolean = synchronizedMarks {
         val at = marks.remove(markKey(key, saved)) ?: return@synchronizedMarks false
+        nowMs() - at < ttlMs
+    }
+
+    /** True when [key] was changed that way less than [ttlMs] ago (the mark is kept). */
+    fun isMarked(key: String, saved: Boolean = false): Boolean = synchronizedMarks {
+        val at = marks[markKey(key, saved)] ?: return@synchronizedMarks false
         nowMs() - at < ttlMs
     }
 

@@ -83,6 +83,7 @@ internal fun LazyListScope.letterboxdSettingsContent(isTablet: Boolean) {
         }
     }
     letterboxdFriendsSettingsContent(isTablet)
+    letterboxdRatePromptSettingsContent(isTablet)
     letterboxdRateLimitsSettingsContent(isTablet)
 }
 

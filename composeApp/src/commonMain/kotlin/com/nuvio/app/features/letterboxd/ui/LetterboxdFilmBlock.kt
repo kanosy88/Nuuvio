@@ -136,14 +136,7 @@ internal fun LetterboxdFilmBlock(
         LetterboxdFilmPanelController(
             source = ClientLetterboxdFilmSource.default,
             scope = scope,
-            onBecameWatched = {
-                when (LetterboxdLibraryBridge.removeWatchedMovie(currentMeta, tmdbId)) {
-                    LetterboxdLibraryBridge.Result.Removed -> NuvioToastController.show(getString(Res.string.letterboxd_film_removed_from_library))
-                    LetterboxdLibraryBridge.Result.NeedsConfirmation -> NuvioToastController.show(getString(Res.string.letterboxd_film_library_confirm), 4000L)
-                    LetterboxdLibraryBridge.Result.Failed -> NuvioToastController.show(getString(Res.string.letterboxd_film_library_failed), 4000L)
-                    LetterboxdLibraryBridge.Result.NotInLibrary -> Unit
-                }
-            },
+            onBecameWatched = { removeWatchedFilmFromLibrary(currentMeta, tmdbId) },
         )
     }
     LaunchedEffect(meta.id) {
@@ -171,6 +164,16 @@ internal fun LetterboxdFilmBlock(
         onRate = controller::setRating,
         onSaveReview = controller::saveReview,
     )
+}
+
+/** A rating / review made the film "watched" on Letterboxd: it leaves the Nuvio library too (with a notice). */
+internal suspend fun removeWatchedFilmFromLibrary(meta: MetaDetails, tmdbId: Int?) {
+    when (LetterboxdLibraryBridge.removeWatchedMovie(meta, tmdbId)) {
+        LetterboxdLibraryBridge.Result.Removed -> NuvioToastController.show(getString(Res.string.letterboxd_film_removed_from_library))
+        LetterboxdLibraryBridge.Result.NeedsConfirmation -> NuvioToastController.show(getString(Res.string.letterboxd_film_library_confirm), 4000L)
+        LetterboxdLibraryBridge.Result.Failed -> NuvioToastController.show(getString(Res.string.letterboxd_film_library_failed), 4000L)
+        LetterboxdLibraryBridge.Result.NotInLibrary -> Unit
+    }
 }
 
 /** Stateless rendering of [LetterboxdFilmPanelState] (also used by the screenshot test). */
@@ -341,6 +344,43 @@ private fun PersonalSection(
     }
 }
 
+/**
+ * F5 (end-of-film prompt): the member's own actions of the block — watched state, like, review / diary
+ * entry, half-star rating — without the community part. [onRatingDraft] reports the stars picked but not
+ * sent yet (the rating is committed after a short pause), so closing the prompt can still send it.
+ */
+@Composable
+internal fun LetterboxdMyActivityPanel(
+    title: String,
+    state: LetterboxdFilmPanelState,
+    onRetry: () -> Unit,
+    onToggleLike: () -> Unit,
+    onRate: (Double?) -> Unit,
+    onSaveReview: (LetterboxdLogEntryDraft, String?) -> Unit,
+    onRatingDraft: (Int) -> Unit,
+) {
+    when (state.phase) {
+        Phase.Idle, Phase.Loading -> LoadingLine(stringResource(Res.string.letterboxd_film_loading))
+        Phase.NotOnLetterboxd -> MutedText(stringResource(Res.string.letterboxd_film_not_found))
+        Phase.Failed -> ErrorLine(
+            message = stringResource((state.error ?: com.nuvio.app.features.letterboxd.LetterboxdError.Network).messageResource()),
+            onRetry = onRetry,
+        )
+        Phase.Ready -> when (state.connection) {
+            Connection.NotConnected -> MutedText(stringResource(Res.string.letterboxd_film_connect_prompt))
+            Connection.ReconnectRequired -> MutedText(stringResource(Res.string.letterboxd_film_reconnect))
+            Connection.Connected -> when (state.personal) {
+                PersonalPhase.Idle, PersonalPhase.Loading -> LoadingLine(stringResource(Res.string.letterboxd_film_personal_loading))
+                PersonalPhase.Failed -> ErrorLine(
+                    message = stringResource((state.personalError ?: com.nuvio.app.features.letterboxd.LetterboxdError.Network).messageResource()),
+                    onRetry = onRetry,
+                )
+                PersonalPhase.Ready -> MyActivity(title, state, onToggleLike, onRate, onSaveReview, onRatingDraft)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MyActivity(
@@ -349,6 +389,7 @@ private fun MyActivity(
     onToggleLike: () -> Unit,
     onRate: (Double?) -> Unit,
     onSaveReview: (LetterboxdLogEntryDraft, String?) -> Unit,
+    onRatingDraft: (Int) -> Unit = {},
 ) {
     val tokens = MaterialTheme.nuvio
     val myState = state.myState ?: return
@@ -388,7 +429,7 @@ private fun MyActivity(
             )
         }
 
-        RatingRow(savedRating = myState.rating, busy = state.busy, onRate = onRate)
+        RatingRow(savedRating = myState.rating, busy = state.busy, onRate = onRate, onDraft = onRatingDraft)
 
         if (state.busy != null) {
             LoadingLine(stringResource(Res.string.letterboxd_film_saving))
@@ -422,11 +463,13 @@ private fun MyActivity(
 
 /** Half-star rating, committed after a short pause so a drag across the stars sends a single request. */
 @Composable
-private fun RatingRow(savedRating: Double?, busy: Action?, onRate: (Double?) -> Unit) {
+private fun RatingRow(savedRating: Double?, busy: Action?, onRate: (Double?) -> Unit, onDraft: (Int) -> Unit = {}) {
     val tokens = MaterialTheme.nuvio
     val saved = savedRating?.let { (it * 2).roundToInt() } ?: 0
     var draft by remember { mutableIntStateOf(saved) }
     LaunchedEffect(saved) { draft = saved }
+    val currentOnDraft by rememberUpdatedState(onDraft)
+    LaunchedEffect(draft) { currentOnDraft(draft) }
     val currentBusy by rememberUpdatedState(busy)
     LaunchedEffect(draft) {
         if (draft == saved || draft == 0) return@LaunchedEffect
@@ -767,7 +810,7 @@ private fun MutedText(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.nuvio.colors.textMuted, modifier = modifier)
 }
 
-private val LetterboxdGreen = Color(0xFF00C030)
+internal val LetterboxdGreen = Color(0xFF00C030)
 private val LetterboxdOrange = Color(0xFFFF8000)
 
 internal fun starsText(rating: Double): String {

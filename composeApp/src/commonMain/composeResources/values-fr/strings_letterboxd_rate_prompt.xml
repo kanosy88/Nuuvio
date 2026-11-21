@@ -1,0 +1,13 @@
+<resources>
+    <string name="letterboxd_rate_prompt_title">Noter sur Letterboxd ?</string>
+    <string name="letterboxd_rate_prompt_watched">Enregistré comme vu sur Letterboxd</string>
+    <string name="letterboxd_rate_prompt_not_now">Plus tard</string>
+    <string name="letterboxd_rate_prompt_done">Terminé</string>
+    <string name="letterboxd_section_rate_prompt">APRÈS UN FILM</string>
+    <string name="letterboxd_rate_prompt_setting_enabled">Proposer de noter sur Letterboxd</string>
+    <string name="letterboxd_rate_prompt_setting_enabled_description">Quand un film atteint le seuil ou se termine dans le lecteur, il est marqué vu sur Letterboxd et une note, un like et une critique vous sont proposés à la sortie du lecteur. Films uniquement, une fois par visionnage.</string>
+    <string name="letterboxd_rate_prompt_setting_follow_journal">Même seuil que le Journal</string>
+    <string name="letterboxd_rate_prompt_setting_follow_journal_description">Actuellement %1$d% (réglage « considéré vu » du Journal).</string>
+    <string name="letterboxd_rate_prompt_setting_threshold">Seuil</string>
+    <string name="letterboxd_rate_prompt_setting_threshold_value">%1$d%</string>
+</resources>

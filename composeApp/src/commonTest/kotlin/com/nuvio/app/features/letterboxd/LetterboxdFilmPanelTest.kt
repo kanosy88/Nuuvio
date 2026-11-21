@@ -441,6 +441,121 @@ class LetterboxdFilmPanelTest {
         assertEquals("1M", com.nuvio.app.features.letterboxd.ui.formatCompactCount(1_000_000))
     }
 
+    // ------------------------------------------------------------------ F5: end-of-film prompt (one "watched" write)
+
+    @Test
+    fun endOfFilmWritesWatchedOnceThenTheNativeObserverSkipsIt() = runTest {
+        val server = FakeLetterboxdServer(this, film)
+        val native = server.nativeSync()
+        var result: LetterboxdFilm? = null
+        server.controllerScope.launch { result = native.sync.ensureWatched(native.target) }
+        testScheduler.advanceUntilIdle()
+        assertEquals("midsommar", result?.slug)
+        assertEquals(1, server.requests.count { it.method == "POST" && it.path == "/s/film:459564/watch/" })
+        assertTrue(server.watched)
+        assertEquals(1, native.removals, "left the Nuvio library like a native 'watched'")
+        // Detail page composed under the player: it sees Nuvio's own 'watched' mark a moment later → no second write.
+        native.sync.watchedChanged(native.target, true)
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, server.requests.count { it.method == "POST" })
+        assertEquals(1, native.removals)
+        // An explicit "not watched" afterwards is still mirrored, and a new "watched" writes again.
+        native.sync.watchedChanged(native.target, false)
+        testScheduler.advanceUntilIdle()
+        native.sync.watchedChanged(native.target, true)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("watched=true&__csrf=tok", "watched=false&__csrf=tok", "watched=true&__csrf=tok"), server.requests.filter { it.method == "POST" }.map { it.body })
+    }
+
+    @Test
+    fun endOfFilmAfterTheNativeObserverDoesNotWriteAgain() = runTest {
+        val server = FakeLetterboxdServer(this, film)
+        val native = server.nativeSync()
+        native.sync.watchedChanged(native.target, true)
+        var result: LetterboxdFilm? = null
+        server.controllerScope.launch { result = native.sync.ensureWatched(native.target) }
+        testScheduler.advanceUntilIdle()
+        assertEquals("midsommar", result?.slug)
+        assertEquals(1, server.requests.count { it.method == "POST" })
+        assertEquals(1, native.removals)
+    }
+
+    @Test
+    fun endOfFilmOfAFilmAlreadyWatchedReadsOnly() = runTest {
+        val server = FakeLetterboxdServer(this, film)
+        server.watched = true
+        server.inWatchlist = false
+        server.rating = 3.0
+        val native = server.nativeSync(removal = LetterboxdLibraryBridge.Result.NotInLibrary)
+        var result: LetterboxdFilm? = null
+        server.controllerScope.launch { result = native.sync.ensureWatched(native.target) }
+        testScheduler.advanceUntilIdle()
+        assertEquals("midsommar", result?.slug)
+        assertTrue(server.requests.none { it.method != "GET" }, "rewatch: nothing to write")
+        assertTrue(native.notices.isEmpty())
+    }
+
+    @Test
+    fun endOfFilmWithoutAccountOrOnFailureGivesNoPrompt() = runTest {
+        val noAccount = FakeLetterboxdServer(this, film, account = LetterboxdAccountState(isLoaded = true))
+        val offline = noAccount.nativeSync()
+        var result: LetterboxdFilm? = film
+        noAccount.controllerScope.launch { result = offline.sync.ensureWatched(offline.target) }
+        testScheduler.advanceUntilIdle()
+        assertNull(result)
+        assertTrue(noAccount.requests.isEmpty())
+
+        val expired = FakeLetterboxdServer(this, film)
+        expired.sessionValid = false
+        val native = expired.nativeSync()
+        result = film
+        expired.controllerScope.launch { result = native.sync.ensureWatched(native.target) }
+        testScheduler.advanceUntilIdle()
+        assertNull(result)
+        assertTrue(native.notices.single() is LetterboxdNativeSync.Notice.Failed, "visible failure")
+        assertEquals(0, native.removals, "library untouched when Letterboxd failed")
+    }
+
+    @Test
+    fun endOfFilmPromptFlowWithFakeServer() = runTest {
+        val server = FakeLetterboxdServer(this, film)
+        val native = server.nativeSync()
+        var clock = 1_000_000L
+        val meta = com.nuvio.app.features.details.MetaDetails(id = "tt8772262", type = "movie", name = "Midsommar")
+        val coordinator = LetterboxdRatePromptCoordinator(
+            scope = server.controllerScope,
+            settings = { LetterboxdRatePromptSettings() },
+            journalThreshold = { 90 },
+            account = { connectedAccount },
+            prepare = { ref -> native.sync.ensureWatched(native.target)?.let { meta.copy(id = ref.id) to it } },
+            ratedSince = { _, _ -> false },
+            nowMs = { clock },
+        )
+        val session = coordinator.startSession(LetterboxdViewingRef(id = "tt8772262", title = "Midsommar", poster = null))
+        session.observe(positionMs = 60_000, durationMs = 8_880_000, isEnded = false)
+        session.observe(positionMs = 8_000_000, durationMs = 8_880_000, isEnded = false) // 90 %
+        assertTrue(server.requests.isEmpty(), "nothing is sent while the player is open")
+        session.close()
+        clock += 2_000
+        testScheduler.advanceUntilIdle()
+        val request = coordinator.pending.value
+        assertEquals("midsommar", request?.film?.slug)
+        assertEquals(1, server.requests.count { it.method == "POST" })
+
+        // The dialog: F1 controller without the community part, then a rating.
+        val controller = LetterboxdFilmPanelController(native.source, server.controllerScope, includeCommunity = false)
+        controller.load(530385)
+        testScheduler.advanceUntilIdle()
+        assertTrue(controller.state.value.myState!!.watched)
+        assertTrue(server.requests.none { it.path.contains("histogram") || it.path.contains("friend-activity") })
+        controller.setRating(4.5)
+        testScheduler.advanceUntilIdle()
+        assertEquals(4.5, server.rating)
+        assertEquals(1, server.requests.count { it.method == "POST" }, "rating after watched: still one 'watched' write")
+        coordinator.dismiss(request!!)
+        assertNull(coordinator.pending.value)
+    }
+
     private companion object {
     /** Friend activity fragment, same markup as the real one (member names are made up). */
             val friendFragment = """
@@ -611,7 +726,7 @@ class LetterboxdFilmPanelTest {
             return LetterboxdFilmPanelController(source, controllerScope, onBecameWatched)
         }
 
-        class Native(val sync: LetterboxdNativeSync, val target: LetterboxdNativeSync.Target) {
+        class Native(val sync: LetterboxdNativeSync, val target: LetterboxdNativeSync.Target, val source: LetterboxdFilmSource) {
             var removals = 0
             val notices = mutableListOf<LetterboxdNativeSync.Notice>()
             val changes = mutableListOf<String>()
@@ -634,7 +749,7 @@ class LetterboxdFilmPanelTest {
                 resolveFilm = { film },
                 removeFromLibrary = { native.removals++; removal },
             )
-            native = Native(sync, target)
+            native = Native(sync, target, source)
             controllerScope.launch { sync.changes.collect { native.changes += it } }
             return native
         }

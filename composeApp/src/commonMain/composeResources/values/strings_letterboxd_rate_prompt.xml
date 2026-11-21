@@ -1,0 +1,13 @@
+<resources>
+    <string name="letterboxd_rate_prompt_title">Rate on Letterboxd?</string>
+    <string name="letterboxd_rate_prompt_watched">Logged as watched on Letterboxd</string>
+    <string name="letterboxd_rate_prompt_not_now">Not now</string>
+    <string name="letterboxd_rate_prompt_done">Done</string>
+    <string name="letterboxd_section_rate_prompt">AFTER A FILM</string>
+    <string name="letterboxd_rate_prompt_setting_enabled">Offer to rate on Letterboxd</string>
+    <string name="letterboxd_rate_prompt_setting_enabled_description">When a film reaches the threshold or ends in the player, mark it watched on Letterboxd and offer a rating, like and review once you leave the player. Films only, once per viewing.</string>
+    <string name="letterboxd_rate_prompt_setting_follow_journal">Same threshold as the Journal</string>
+    <string name="letterboxd_rate_prompt_setting_follow_journal_description">Currently %1$d% (the Journal’s “counts as watched” setting).</string>
+    <string name="letterboxd_rate_prompt_setting_threshold">Threshold</string>
+    <string name="letterboxd_rate_prompt_setting_threshold_value">%1$d%</string>
+</resources>
