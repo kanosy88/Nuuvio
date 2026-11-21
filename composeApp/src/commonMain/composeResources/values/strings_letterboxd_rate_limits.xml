@@ -18,4 +18,9 @@
     <string name="letterboxd_rl_value_minutes">%1$d min</string>
     <string name="letterboxd_rl_value_off">Off</string>
     <string name="letterboxd_rl_restore">Restore defaults</string>
+    <string name="letterboxd_rl_journal_pages">Journal: watched films pages per refresh</string>
+    <string name="letterboxd_rl_journal_page_gap">Journal: gap between reads</string>
+    <string name="letterboxd_rl_journal_batch">Journal: films identified per refresh</string>
+    <string name="letterboxd_rl_journal_resolve_gap">Journal: gap between film lookups</string>
+    <string name="letterboxd_rl_journal_min_refresh">Journal: minimum time between automatic refreshes</string>
 </resources>

@@ -103,6 +103,24 @@ internal fun LetterboxdNativeSyncEffect(meta: MetaDetails) {
     }
 }
 
+/**
+ * Mirrors a change of Nuvio's native "watched" state made outside the detail page (Journal) exactly like
+ * [LetterboxdNativeSyncEffect] does for the detail button: same writes, library removal and notices.
+ * Films only; no-op without Letterboxd cookies or on unsupported platforms.
+ */
+internal fun mirrorNativeWatchedToLetterboxd(meta: MetaDetails, watched: Boolean) {
+    if (!LetterboxdRepository.isSupported || !meta.type.equals("movie", ignoreCase = true)) return
+    val target = LetterboxdNativeSync.Target(
+        key = meta.id,
+        resolveFilm = { resolveLetterboxdFilm(meta) },
+        removeFromLibrary = {
+            val tmdbId = runCatching { TmdbService.ensureTmdbId(meta.id, "movie", meta.imdbId)?.toIntOrNull() }.getOrNull()
+            LetterboxdLibraryBridge.removeWatchedMovie(meta, tmdbId)
+        },
+    )
+    LetterboxdNativeActions.sync.watchedChanged(target, watched)
+}
+
 /** Same matching as the detail block: TMDB id, IMDb id as fallback. */
 private suspend fun resolveLetterboxdFilm(meta: MetaDetails): LetterboxdFilm? {
     val tmdbId = runCatching { TmdbService.ensureTmdbId(meta.id, "movie", meta.imdbId)?.toIntOrNull() }.getOrNull()

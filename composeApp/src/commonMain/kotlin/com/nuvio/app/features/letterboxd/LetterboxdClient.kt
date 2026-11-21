@@ -121,6 +121,18 @@ internal class LetterboxdClient(
         )
     }
 
+    /** One page (72 films) of the member's watched films `/<user>/films/page/N/` (rating and like, no date). */
+    suspend fun fetchWatchedFilmsPage(username: String, page: Int): LetterboxdWatchedFilmsPage {
+        require(page >= 1) { "Invalid page" }
+        val path = if (page == 1) "/$username/films/" else "/$username/films/page/$page/"
+        val response = transport.execute(LetterboxdHttpRequest("GET", path), authenticated = true)
+        handleAuthStatus(response)
+        if (response.status == 404) throw LetterboxdException(LetterboxdError.NotFound, status = 404)
+        if (response.status != 200) throw statusError(response.status)
+        val items = LetterboxdParsers.parseWatchedFilmsPage(response.body)
+        return LetterboxdWatchedFilmsPage(items, hasNext = items.isNotEmpty() && LetterboxdParsers.hasNextPage(response.body))
+    }
+
     suspend fun fetchFollowing(username: String, maxPages: Int = 20): List<String> {
         val members = mutableListOf<String>()
         for (page in 1..maxPages) {

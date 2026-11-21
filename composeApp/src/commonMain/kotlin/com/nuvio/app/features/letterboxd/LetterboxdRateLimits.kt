@@ -37,6 +37,16 @@ data class LetterboxdRateLimits(
     val ownDiaryCacheMin: Int = 360,
     /** Film detail block: personal state kept in memory, in seconds. 0 = no cache. */
     val personalCacheSec: Int = 90,
+    /** Journal: pages of the member's watched films (72 films each) read per refresh. */
+    val journalMaxPages: Int = 3,
+    /** Journal: gap between two Letterboxd reads (RSS, watched films pages). */
+    val journalPageGapMs: Int = 1_500,
+    /** Journal: films whose ids are looked up per refresh (the others at the next refresh or on click). */
+    val journalResolveBatch: Int = 10,
+    /** Journal: gap between two film lookups. */
+    val journalResolveGapMs: Int = 1_500,
+    /** Journal: minimum time between two automatic refreshes, in minutes. */
+    val journalMinRefreshMin: Int = 30,
 ) {
     /** Clamps every value to its allowed range (applied to what is read from or written to storage). */
     fun sanitized(): LetterboxdRateLimits = copy(
@@ -50,6 +60,11 @@ data class LetterboxdRateLimits(
         friendsMinAutoRefreshSec = friendsMinAutoRefreshSec.coerceIn(MinAutoRefreshRangeSec),
         ownDiaryCacheMin = ownDiaryCacheMin.coerceIn(OwnDiaryCacheRangeMin),
         personalCacheSec = personalCacheSec.coerceIn(PersonalCacheRangeSec),
+        journalMaxPages = journalMaxPages.coerceIn(JournalMaxPagesRange),
+        journalPageGapMs = journalPageGapMs.coerceIn(BulkGapRangeMs),
+        journalResolveBatch = journalResolveBatch.coerceIn(FriendsResolveBatchRange),
+        journalResolveGapMs = journalResolveGapMs.coerceIn(BulkGapRangeMs),
+        journalMinRefreshMin = journalMinRefreshMin.coerceIn(JournalMinRefreshRangeMin),
     )
 
     companion object {
@@ -60,6 +75,8 @@ data class LetterboxdRateLimits(
         val MinAutoRefreshRangeSec = 10..600
         val OwnDiaryCacheRangeMin = 30..1_440
         val PersonalCacheRangeSec = 0..600
+        val JournalMaxPagesRange = 1..20
+        val JournalMinRefreshRangeMin = 5..1_440
     }
 }
 

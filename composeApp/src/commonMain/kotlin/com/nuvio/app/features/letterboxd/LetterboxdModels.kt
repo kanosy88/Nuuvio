@@ -151,6 +151,25 @@ data class LetterboxdDiaryEntry(
     val publishedAt: String?,
     val link: String?,
     val isReview: Boolean,
+    val posterUrl: String? = null,
+)
+
+/** A film of the member's "Films" page (watched films): rating out of 5 and like, no date nor TMDB id. */
+@Serializable
+data class LetterboxdWatchedFilm(
+    val slug: String,
+    val lid: String? = null,
+    val uid: String? = null,
+    val title: String? = null,
+    val year: Int? = null,
+    val rating: Double? = null,
+    val liked: Boolean = false,
+)
+
+/** One page (72 films) of `/<user>/films/`. */
+data class LetterboxdWatchedFilmsPage(
+    val items: List<LetterboxdWatchedFilm>,
+    val hasNext: Boolean,
 )
 
 enum class LetterboxdActivityType {

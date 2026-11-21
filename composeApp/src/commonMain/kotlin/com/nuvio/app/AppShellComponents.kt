@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -74,6 +75,7 @@ import com.nuvio.app.features.home.HomeCatalogSection
 import com.nuvio.app.features.home.HomeScreen
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.library.LibraryItem
+import com.nuvio.app.features.journal.ui.JournalScreen
 import com.nuvio.app.features.library.LibraryScreen
 import com.nuvio.app.features.library.LibrarySection
 import com.nuvio.app.features.library.LibrarySortOption
@@ -103,6 +105,7 @@ import kotlinx.coroutines.flow.Flow
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.app_brand_name
 import nuvio.composeapp.generated.resources.compose_nav_home
+import nuvio.composeapp.generated.resources.journal_title
 import nuvio.composeapp.generated.resources.compose_nav_library
 import nuvio.composeapp.generated.resources.compose_nav_profile
 import nuvio.composeapp.generated.resources.compose_nav_search
@@ -282,6 +285,8 @@ internal fun AppTabHost(
                     disintegrationRequest = state.libraryDisintegrationRequest,
                 )
             }
+
+            AppScreenTab.Journal -> JournalScreen(onOpen = { actions.onPosterClick?.invoke(it) }, modifier = Modifier.fillMaxSize(), topChromePadding = state.topChromePadding)
 
             AppScreenTab.Settings -> {
                 SettingsScreen(
@@ -859,6 +864,14 @@ internal fun DesktopHoverSidebar(
                         modifier = Modifier.size(DesktopSidebarIconSize),
                         tint = color,
                     )
+                }
+                DesktopSidebarItem(
+                    label = stringResource(Res.string.journal_title),
+                    selected = selectedTab == AppScreenTab.Journal,
+                    expanded = sidebarExpanded,
+                    onClick = { selectTab(AppScreenTab.Journal) },
+                ) { color ->
+                    Icon(Icons.Filled.History, stringResource(Res.string.journal_title), Modifier.size(DesktopSidebarIconSize), color)
                 }
                 DesktopSidebarItem(
                     label = stringResource(Res.string.compose_settings_page_root),

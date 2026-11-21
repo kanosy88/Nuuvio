@@ -137,6 +137,51 @@ internal fun LazyListScope.letterboxdRateLimitsSettingsContent(isTablet: Boolean
                     isTablet = isTablet,
                 ) { value -> update { it.copy(personalCacheSec = value) } }
                 SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_journal_pages),
+                    value = settings.journalMaxPages,
+                    valueRange = LetterboxdRateLimits.JournalMaxPagesRange,
+                    step = 1,
+                    valueText = pages,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(journalMaxPages = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_journal_page_gap),
+                    value = settings.journalPageGapMs,
+                    valueRange = LetterboxdRateLimits.BulkGapRangeMs,
+                    step = 500,
+                    valueText = seconds,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(journalPageGapMs = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_journal_batch),
+                    value = settings.journalResolveBatch,
+                    valueRange = LetterboxdRateLimits.FriendsResolveBatchRange,
+                    step = 1,
+                    valueText = films,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(journalResolveBatch = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_journal_resolve_gap),
+                    value = settings.journalResolveGapMs,
+                    valueRange = LetterboxdRateLimits.BulkGapRangeMs,
+                    step = 500,
+                    valueText = seconds,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(journalResolveGapMs = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_journal_min_refresh),
+                    value = settings.journalMinRefreshMin,
+                    valueRange = LetterboxdRateLimits.JournalMinRefreshRangeMin,
+                    step = 5,
+                    valueText = minutes,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(journalMinRefreshMin = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 20.dp else 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.End,

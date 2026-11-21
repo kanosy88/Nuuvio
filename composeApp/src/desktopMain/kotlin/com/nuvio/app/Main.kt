@@ -45,6 +45,7 @@ import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.settings.AppIconRepository
 import com.nuvio.app.features.settings.applyDesktopRendererPreference
 import com.nuvio.app.features.settings.transparentPreviewResource
+import com.nuvio.app.features.journal.JournalRepository
 import java.awt.Desktop
 import javax.imageio.ImageIO
 import java.awt.Color as AwtColor
@@ -74,6 +75,7 @@ fun main(args: Array<String>) {
     AppIconRepository.ensureLoaded()
     AutoSyncPreferencesDesktop.initialize()
     DiscordPresenceManager.start()
+    JournalRepository.start()
 
     application {
         val appIconState by AppIconRepository.state.collectAsState()

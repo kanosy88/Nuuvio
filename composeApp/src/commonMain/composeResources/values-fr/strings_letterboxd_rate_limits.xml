@@ -18,4 +18,9 @@
     <string name="letterboxd_rl_value_minutes">%1$d min</string>
     <string name="letterboxd_rl_value_off">Désactivé</string>
     <string name="letterboxd_rl_restore">Rétablir les valeurs par défaut</string>
+    <string name="letterboxd_rl_journal_pages">Journal : pages de films vus par actualisation</string>
+    <string name="letterboxd_rl_journal_page_gap">Journal : délai entre les lectures</string>
+    <string name="letterboxd_rl_journal_batch">Journal : films identifiés par actualisation</string>
+    <string name="letterboxd_rl_journal_resolve_gap">Journal : délai entre les recherches de films</string>
+    <string name="letterboxd_rl_journal_min_refresh">Journal : délai minimal entre actualisations automatiques</string>
 </resources>

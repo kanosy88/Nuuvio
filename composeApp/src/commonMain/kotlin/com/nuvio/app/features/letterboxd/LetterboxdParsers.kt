@@ -187,6 +187,35 @@ internal object LetterboxdParsers {
                 publishedAt = tag("pubDate"),
                 link = link,
                 isReview = guid.startsWith("letterboxd-review"),
+                posterUrl = Regex("""<img src="([^"]+)"""").find(item)?.groupValues?.get(1)?.let(::decodeEntities),
+            )
+        }.toList()
+
+    /**
+     * `/<user>/films/[page/N/]` (verified Nov 2026): same `<li class="griditem">` posters as the watchlist
+     * (`data-item-slug`, `data-item-name="Title (year)"`, `data-postered-identifier`), followed by
+     * `<p class="poster-viewingdata">` with `rating … rated-8` (4★) and `icon-liked` when liked.
+     */
+    fun parseWatchedFilmsPage(html: String): List<LetterboxdWatchedFilm> =
+        Regex("""<li class="griditem[^"]*">([\s\S]*?)</li>""").findAll(html).mapNotNull { match ->
+            val item = match.groupValues[1]
+            val slug = Regex("""data-item-slug="([^"]+)"""").find(item)?.groupValues?.get(1)
+                ?: Regex("""data-target-link="/film/([^/"]+)/"""").find(item)?.groupValues?.get(1)
+                ?: return@mapNotNull null
+            val identifier = Regex("""data-postered-identifier='([^']*)'""").find(item)?.groupValues?.get(1)
+                ?.let { runCatching { json.parseToJsonElement(decodeEntities(it)).jsonObject }.getOrNull() }
+            val fullName = Regex("""data-item-name="([^"]*)"""").find(item)?.groupValues?.get(1)?.let(::decodeEntities)
+            val yearMatch = fullName?.let { Regex("""^(.*)\s\((\d{4})\)$""").find(it.trim()) }
+            val viewing = item.substringAfter("poster-viewingdata", missingDelimiterValue = "")
+            LetterboxdWatchedFilm(
+                slug = slug,
+                lid = identifier?.string("lid"),
+                uid = identifier?.string("uid"),
+                title = yearMatch?.groupValues?.get(1) ?: fullName,
+                year = yearMatch?.groupValues?.get(2)?.toIntOrNull(),
+                rating = Regex("""\brated-(\d{1,2})\b""").find(viewing)?.groupValues?.get(1)?.toIntOrNull()
+                    ?.takeIf { it in 1..10 }?.let { it / 2.0 },
+                liked = Regex("""\b(icon-liked|liked-micro)\b""").containsMatchIn(viewing),
             )
         }.toList()
 
