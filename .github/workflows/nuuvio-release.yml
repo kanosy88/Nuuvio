@@ -3,6 +3,7 @@
 # runs the Letterboxd/Journal tests, builds macOS (DMG), Windows (MSI) and Linux (DEB + AppImage),
 # publishes a GitHub Release "nuuvio-<tag>-<run>" and only then moves `perso` to the merged commit.
 name: Nuuvio sync and release
+run-name: Nuuvio sync and release (${{ inputs.upstream_tag || 'latest upstream release' }})
 
 on:
   workflow_dispatch:
