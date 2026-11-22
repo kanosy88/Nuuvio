@@ -417,9 +417,13 @@ jobs:
           NUUVIO_BUILD_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
-          ./gradlew :composeApp:packageReleaseDeb :composeApp:packageReleaseAppImage \
-            -Pcompose.desktop.packaging.checkJdkVendor=false \
-            --no-configuration-cache --no-daemon --stacktrace
+          # Two invocations: both jpackage tasks write composeApp/build/compose/binaries/main-release/app,
+          # which Gradle rejects when they are in the same build.
+          for task in packageReleaseDeb packageReleaseAppImage; do
+            ./gradlew ":composeApp:${task}" \
+              -Pcompose.desktop.packaging.checkJdkVendor=false \
+              --no-configuration-cache --no-daemon --stacktrace
+          done
           mkdir -p dist
           mapfile -t debs < <(find composeApp/build/compose/binaries/main-release/deb -maxdepth 1 -name '*.deb' | sort)
           if [[ "${#debs[@]}" -ne 1 ]]; then echo "::error::Expected one .deb, found ${#debs[@]}"; exit 1; fi
