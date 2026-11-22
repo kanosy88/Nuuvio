@@ -195,14 +195,10 @@ internal fun parseActivityInstant(value: String?): Long? =
 // ---------------------------------------------------------------------------------------------- data source
 
 /** What the feed needs from Letterboxd (swappable in tests). */
-internal interface LetterboxdFriendsSource {
+internal interface LetterboxdFriendsSource : LetterboxdFilmSlugSource {
     /** Null when no Letterboxd account is connected (row hidden). */
     suspend fun username(): String?
     suspend fun activityPage(username: String, after: String?): LetterboxdActivityPage
-    /** Cached film, no network. */
-    suspend fun cachedFilm(slug: String): LetterboxdFilm?
-    /** Film page (one request); null when Letterboxd doesn't know the slug. */
-    suspend fun fetchFilm(slug: String): LetterboxdFilm?
     /** Slugs of the member's own latest diary entries (public RSS, one request). */
     suspend fun myRecentSlugs(username: String): List<String>
 }
@@ -218,13 +214,9 @@ internal class RepositoryLetterboxdFriendsSource : LetterboxdFriendsSource {
     override suspend fun activityPage(username: String, after: String?): LetterboxdActivityPage =
         LetterboxdRepository.authenticated { fetchFollowingActivityPage(username, after) }
 
-    override suspend fun cachedFilm(slug: String): LetterboxdFilm? = LetterboxdRepository.cachedFilm(slug)
+    override suspend fun cachedFilm(slug: String): LetterboxdFilm? = RepositoryLetterboxdFilmSlugs.cachedFilm(slug)
 
-    override suspend fun fetchFilm(slug: String): LetterboxdFilm? = try {
-        LetterboxdRepository.film(slug, maxAgeMs = Long.MAX_VALUE)
-    } catch (error: LetterboxdException) {
-        if (error.error == LetterboxdError.NotFound) null else throw error
-    }
+    override suspend fun fetchFilm(slug: String): LetterboxdFilm? = RepositoryLetterboxdFilmSlugs.fetchFilm(slug)
 
     override suspend fun myRecentSlugs(username: String): List<String> =
         LetterboxdRepository.client.fetchDiaryRss(username).mapNotNull { it.filmSlug }
@@ -297,12 +289,13 @@ internal class LetterboxdFriendsFeed(
             if (!current.settings.enabled || current.isRefreshing) return@launch
             val now = nowMs()
             if (now - lastAttemptAt < limits().friendsMinAutoRefreshSec * 1_000L) return@launch
-            val due = when (current.settings.refreshMode) {
-                LetterboxdFriendsRefreshMode.OnLaunch -> !refreshedThisSession
-                LetterboxdFriendsRefreshMode.EveryVisit -> true
-                LetterboxdFriendsRefreshMode.EveryVisitWithDelay ->
-                    now - current.fetchedAtEpochMs >= current.settings.refreshDelayMinutes.coerceAtLeast(1) * MINUTE_MS
-            }
+            val due = letterboxdRowRefreshDue(
+                mode = current.settings.refreshMode,
+                delayMinutes = current.settings.refreshDelayMinutes,
+                nowMs = now,
+                fetchedAtEpochMs = current.fetchedAtEpochMs,
+                refreshedThisSession = refreshedThisSession,
+            )
             if (due) refresh()
         }
     }

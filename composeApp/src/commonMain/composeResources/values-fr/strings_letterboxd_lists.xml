@@ -1,0 +1,28 @@
+<resources>
+    <string name="letterboxd_section_lists">LISTES LETTERBOXD SUR L’ACCUEIL</string>
+    <string name="letterboxd_lists_help">Chaque liste devient une bande sur l’accueil (films uniquement, les séries sont ignorées). Collez l’adresse de n’importe quelle liste publique ou choisissez une de vos listes.</string>
+    <string name="letterboxd_lists_url_label">Adresse de la liste</string>
+    <string name="letterboxd_lists_add">Ajouter</string>
+    <string name="letterboxd_lists_adding">Lecture de la liste…</string>
+    <string name="letterboxd_lists_invalid_url">Ce n’est pas une adresse de liste Letterboxd (attendu : letterboxd.com/pseudo/list/nom/).</string>
+    <string name="letterboxd_lists_already_added">Cette liste est déjà ajoutée.</string>
+    <string name="letterboxd_lists_no_films">Cette liste ne contient aucun film affichable dans Nuvio.</string>
+    <string name="letterboxd_lists_add_failed">Impossible d’ajouter la liste : %1$s</string>
+    <string name="letterboxd_lists_mine">Mes listes</string>
+    <string name="letterboxd_lists_show_mine">Afficher mes listes</string>
+    <string name="letterboxd_lists_mine_signed_out">Connectez votre compte Letterboxd ci-dessus pour choisir vos listes. Les listes publiques restent ajoutables par adresse.</string>
+    <string name="letterboxd_lists_mine_empty">Vous n’avez encore aucune liste sur Letterboxd.</string>
+    <string name="letterboxd_lists_film_count">%1$d films</string>
+    <string name="letterboxd_lists_added">Ajoutée</string>
+    <string name="letterboxd_lists_by">par %1$s</string>
+    <string name="letterboxd_lists_needs_account">masquée hors connexion</string>
+    <string name="letterboxd_lists_move_up">Monter</string>
+    <string name="letterboxd_lists_move_down">Descendre</string>
+    <string name="letterboxd_lists_remove">Retirer</string>
+    <string name="letterboxd_lists_setting_posters">Affiches par bande</string>
+    <string name="letterboxd_lists_setting_note">Les bandes montrent les premiers films de chaque liste ; « Tout voir » ouvre la liste entière. Les films sont identifiés quelques-uns à la fois (voir Réseau / limites de débit) : de nouvelles affiches peuvent apparaître au fil des actualisations.</string>
+    <string name="letterboxd_lists_catalog_subtitle">Liste Letterboxd</string>
+    <string name="letterboxd_lists_loading">Chargement de la liste…</string>
+    <string name="letterboxd_lists_empty">Cette liste ne contient aucun film affichable dans Nuvio.</string>
+    <string name="letterboxd_lists_error">Impossible de charger la liste : %1$s</string>
+</resources>

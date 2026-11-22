@@ -50,7 +50,6 @@ import com.nuvio.app.features.letterboxd.LetterboxdFriendsEntry
 import com.nuvio.app.features.letterboxd.LetterboxdRepository
 import com.nuvio.app.features.letterboxd.buildLetterboxdFriendsEntries
 import com.nuvio.app.features.watched.WatchedRepository
-import com.nuvio.app.features.watched.watchedItemKeys
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
@@ -192,12 +191,6 @@ internal fun LetterboxdFriendsRowContent(
             )
         }
     }
-}
-
-private fun LetterboxdFilm.isWatchedIn(watchedKeys: Set<String>): Boolean {
-    if (watchedKeys.isEmpty()) return false
-    val ids = listOfNotNull(imdbId, tmdbId?.let { "tmdb:$it" })
-    return ids.any { id -> watchedItemKeys(type = "movie", id = id).any(watchedKeys::contains) }
 }
 
 @Composable

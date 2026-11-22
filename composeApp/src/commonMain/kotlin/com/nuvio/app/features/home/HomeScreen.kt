@@ -57,6 +57,7 @@ import com.nuvio.app.features.details.SeriesPrimaryAction
 import com.nuvio.app.features.details.seriesPrimaryAction
 import com.nuvio.app.features.home.components.HomeCatalogRowSection
 import com.nuvio.app.features.letterboxd.ui.letterboxdFriendsRow
+import com.nuvio.app.features.letterboxd.ui.letterboxdListRows
 import com.nuvio.app.features.home.components.HomeContinueWatchingSection
 import com.nuvio.app.features.home.components.HomeEmptyStateCard
 import com.nuvio.app.features.home.components.HomeHeroReservedSpace
@@ -1190,6 +1191,7 @@ fun HomeScreen(
                         disintegrationRequest = continueWatchingDisintegrationRequest,
                     )
                     letterboxdFriendsRow(sectionPadding = homeSectionPadding, onPosterClick = onPosterClick)
+                    letterboxdListRows(homeSectionPadding, onPosterClick, onPosterLongClick, onCatalogClick)
 
                     keyedEnabledHomeItems.forEach { keyedSettingsItem ->
                         val settingsItem = keyedSettingsItem.value

@@ -47,6 +47,14 @@ data class LetterboxdRateLimits(
     val journalResolveGapMs: Int = 1_500,
     /** Journal: minimum time between two automatic refreshes, in minutes. */
     val journalMinRefreshMin: Int = 30,
+    /** Lists rows: gap between two list pages (one per list at each refresh, more for "View all"). */
+    val listsPageGapMs: Int = 1_500,
+    /** Lists rows: films whose ids are resolved per refresh, and per "View all" page (the others later or on click). */
+    val listsResolveBatch: Int = 10,
+    /** Lists rows: gap between two film resolutions. */
+    val listsResolveGapMs: Int = 1_500,
+    /** Lists rows: minimum time between two automatic refreshes, in seconds. */
+    val listsMinAutoRefreshSec: Int = 60,
 ) {
     /** Clamps every value to its allowed range (applied to what is read from or written to storage). */
     fun sanitized(): LetterboxdRateLimits = copy(
@@ -65,6 +73,10 @@ data class LetterboxdRateLimits(
         journalResolveBatch = journalResolveBatch.coerceIn(FriendsResolveBatchRange),
         journalResolveGapMs = journalResolveGapMs.coerceIn(BulkGapRangeMs),
         journalMinRefreshMin = journalMinRefreshMin.coerceIn(JournalMinRefreshRangeMin),
+        listsPageGapMs = listsPageGapMs.coerceIn(BulkGapRangeMs),
+        listsResolveBatch = listsResolveBatch.coerceIn(FriendsResolveBatchRange),
+        listsResolveGapMs = listsResolveGapMs.coerceIn(BulkGapRangeMs),
+        listsMinAutoRefreshSec = listsMinAutoRefreshSec.coerceIn(MinAutoRefreshRangeSec),
     )
 
     companion object {

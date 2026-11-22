@@ -133,6 +133,40 @@ internal class LetterboxdClient(
         return LetterboxdWatchedFilmsPage(items, hasNext = items.isNotEmpty() && LetterboxdParsers.hasNextPage(response.body))
     }
 
+    /**
+     * One page (100 films) of a list `/<owner>/list/<slug>/[page/N/]`. Sent with the session cookies when there are
+     * some (the owner's private lists), public otherwise. A renamed list redirects to its new address (followed).
+     */
+    suspend fun fetchListPage(ref: LetterboxdListRef, page: Int): LetterboxdListPage {
+        require(page >= 1) { "Invalid page" }
+        var path = if (page == 1) ref.path else "${ref.path}page/$page/"
+        repeat(3) {
+            val response = transport.execute(LetterboxdHttpRequest("GET", path), authenticated = true)
+            handleAuthStatus(response)
+            when (response.status) {
+                200 -> return LetterboxdParsers.parseListPage(response.body)
+                in 300..399 -> path = response.header("Location")?.removePrefix(LETTERBOXD_BASE_URL)
+                    ?.takeIf { it.startsWith("/") && it.contains("/list/") }
+                    ?: throw LetterboxdException(LetterboxdError.NotFound, status = response.status)
+                404 -> throw LetterboxdException(LetterboxdError.NotFound, status = 404)
+                else -> throw statusError(response.status)
+            }
+        }
+        throw LetterboxdException(LetterboxdError.Parse, "Too many redirects")
+    }
+
+    /** One page of a member's lists `/<user>/lists/[page/N/]` and whether there is a next page. */
+    suspend fun fetchMemberListsPage(username: String, page: Int): Pair<List<LetterboxdListSummary>, Boolean> {
+        require(page >= 1) { "Invalid page" }
+        val path = if (page == 1) "/$username/lists/" else "/$username/lists/page/$page/"
+        val response = transport.execute(LetterboxdHttpRequest("GET", path), authenticated = true)
+        handleAuthStatus(response)
+        if (response.status == 404) throw LetterboxdException(LetterboxdError.NotFound, status = 404)
+        if (response.status != 200) throw statusError(response.status)
+        val lists = LetterboxdParsers.parseMemberLists(response.body)
+        return lists to (lists.isNotEmpty() && LetterboxdParsers.hasNextPage(response.body))
+    }
+
     suspend fun fetchFollowing(username: String, maxPages: Int = 20): List<String> {
         val members = mutableListOf<String>()
         for (page in 1..maxPages) {

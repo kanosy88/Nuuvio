@@ -1,0 +1,28 @@
+<resources>
+    <string name="letterboxd_section_lists">LETTERBOXD LISTS ON HOME</string>
+    <string name="letterboxd_lists_help">Each list becomes a row on Home (films only; TV shows are skipped). Paste the address of any public list, or pick one of your own lists.</string>
+    <string name="letterboxd_lists_url_label">List address</string>
+    <string name="letterboxd_lists_add">Add</string>
+    <string name="letterboxd_lists_adding">Reading the list…</string>
+    <string name="letterboxd_lists_invalid_url">This isn’t a Letterboxd list address (expected letterboxd.com/username/list/name/).</string>
+    <string name="letterboxd_lists_already_added">This list is already added.</string>
+    <string name="letterboxd_lists_no_films">This list has no films Nuvio can show.</string>
+    <string name="letterboxd_lists_add_failed">Couldn’t add the list: %1$s</string>
+    <string name="letterboxd_lists_mine">My lists</string>
+    <string name="letterboxd_lists_show_mine">Show my lists</string>
+    <string name="letterboxd_lists_mine_signed_out">Connect your Letterboxd account above to pick your own lists. Public lists can still be added by address.</string>
+    <string name="letterboxd_lists_mine_empty">You have no lists on Letterboxd yet.</string>
+    <string name="letterboxd_lists_film_count">%1$d films</string>
+    <string name="letterboxd_lists_added">Added</string>
+    <string name="letterboxd_lists_by">by %1$s</string>
+    <string name="letterboxd_lists_needs_account">hidden while signed out</string>
+    <string name="letterboxd_lists_move_up">Move up</string>
+    <string name="letterboxd_lists_move_down">Move down</string>
+    <string name="letterboxd_lists_remove">Remove</string>
+    <string name="letterboxd_lists_setting_posters">Posters per row</string>
+    <string name="letterboxd_lists_setting_note">Rows show the first films of each list; “View all” opens the whole list. Films are identified a few at a time (see Network / rate limits), so new posters may appear over several refreshes.</string>
+    <string name="letterboxd_lists_catalog_subtitle">Letterboxd list</string>
+    <string name="letterboxd_lists_loading">Loading the list…</string>
+    <string name="letterboxd_lists_empty">This list has no films Nuvio can show.</string>
+    <string name="letterboxd_lists_error">Couldn’t load the list: %1$s</string>
+</resources>

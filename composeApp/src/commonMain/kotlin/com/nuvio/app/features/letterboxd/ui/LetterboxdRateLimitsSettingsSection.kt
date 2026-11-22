@@ -182,6 +182,42 @@ internal fun LazyListScope.letterboxdRateLimitsSettingsContent(isTablet: Boolean
                     isTablet = isTablet,
                 ) { value -> update { it.copy(journalMinRefreshMin = value) } }
                 SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_lists_page_gap),
+                    value = settings.listsPageGapMs,
+                    valueRange = LetterboxdRateLimits.BulkGapRangeMs,
+                    step = 500,
+                    valueText = seconds,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(listsPageGapMs = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_lists_batch),
+                    value = settings.listsResolveBatch,
+                    valueRange = LetterboxdRateLimits.FriendsResolveBatchRange,
+                    step = 1,
+                    valueText = films,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(listsResolveBatch = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_lists_resolve_gap),
+                    value = settings.listsResolveGapMs,
+                    valueRange = LetterboxdRateLimits.BulkGapRangeMs,
+                    step = 500,
+                    valueText = seconds,
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(listsResolveGapMs = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
+                RateLimitSlider(
+                    title = stringResource(Res.string.letterboxd_rl_lists_min_auto),
+                    value = settings.listsMinAutoRefreshSec,
+                    valueRange = LetterboxdRateLimits.MinAutoRefreshRangeSec,
+                    step = 10,
+                    valueText = { seconds(it * 1_000) },
+                    isTablet = isTablet,
+                ) { value -> update { it.copy(listsMinAutoRefreshSec = value) } }
+                SettingsGroupDivider(isTablet = isTablet)
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 20.dp else 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.End,

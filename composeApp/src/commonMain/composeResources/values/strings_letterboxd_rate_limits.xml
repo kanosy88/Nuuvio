@@ -23,4 +23,8 @@
     <string name="letterboxd_rl_journal_batch">Journal: films identified per refresh</string>
     <string name="letterboxd_rl_journal_resolve_gap">Journal: gap between film lookups</string>
     <string name="letterboxd_rl_journal_min_refresh">Journal: minimum time between automatic refreshes</string>
+    <string name="letterboxd_rl_lists_page_gap">Lists: gap between list pages</string>
+    <string name="letterboxd_rl_lists_batch">Lists: films identified per refresh / “View all” page</string>
+    <string name="letterboxd_rl_lists_resolve_gap">Lists: gap between film lookups</string>
+    <string name="letterboxd_rl_lists_min_auto">Lists: minimum time between automatic refreshes</string>
 </resources>

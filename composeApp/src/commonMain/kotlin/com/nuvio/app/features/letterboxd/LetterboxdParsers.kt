@@ -156,6 +156,66 @@ internal object LetterboxdParsers {
         Regex("""<a[^>]*class="next"[^>]*href=""").containsMatchIn(html) ||
             Regex("""<a[^>]*href="[^"]*/page/\d+/"[^>]*class="next"""").containsMatchIn(html)
 
+    /**
+     * Films of a list page `/<owner>/list/<slug>/[page/N/]` (verified Nov 2026): 100 per page,
+     * `<li class="posteritem">` holding a LazyPoster with `data-item-slug`, `data-item-name="Title (year)"`,
+     * `data-postered-identifier` {lid, uid, type: "film"} and `data-list-index` (position in the list);
+     * list name in `og:title`, size in the description ("A list of 250 films…"), `<a class="next">` link.
+     * Entries whose identifier type isn't `film` are skipped (films only).
+     */
+    fun parseListPage(html: String): LetterboxdListPage {
+        val items = Regex("""<li class="posteritem[^"]*"[^>]*>([\s\S]*?)</li>""").findAll(html).mapNotNull { match ->
+            val item = match.groupValues[1]
+            val slug = Regex("""data-item-slug="([^"]+)"""").find(item)?.groupValues?.get(1)
+                ?: Regex("""data-target-link="/film/([^/"]+)/"""").find(item)?.groupValues?.get(1)
+                ?: return@mapNotNull null
+            val identifier = Regex("""data-postered-identifier='([^']*)'""").find(item)?.groupValues?.get(1)
+                ?.let { runCatching { json.parseToJsonElement(decodeEntities(it)).jsonObject }.getOrNull() }
+            val type = identifier?.string("type")
+            if (type != null && type != "film") return@mapNotNull null
+            val fullName = Regex("""data-item-name="([^"]*)"""").find(item)?.groupValues?.get(1)?.let(::decodeEntities)
+            val yearMatch = fullName?.let { Regex("""^(.*)\s\((\d{4})\)$""").find(it.trim()) }
+            val index = Regex("""data-list-index="(\d+)"""").find(item)?.groupValues?.get(1)?.toIntOrNull()
+            index to LetterboxdListEntry(
+                slug = slug,
+                title = yearMatch?.groupValues?.get(1) ?: fullName,
+                year = yearMatch?.groupValues?.get(2)?.toIntOrNull(),
+            )
+        }.toList()
+        // Other posters (e.g. related lists) carry no list index: keep the list's own entries when they have one.
+        val entries = if (items.any { it.first != null }) {
+            items.filter { it.first != null }.sortedBy { it.first }.map { it.second }
+        } else {
+            items.map { it.second }
+        }
+        return LetterboxdListPage(
+            title = metaProperty(html, "og:title")?.let(::decodeEntities)?.trim()?.takeIf { it.isNotEmpty() },
+            entries = entries.distinctBy { it.slug },
+            hasNext = items.isNotEmpty() && hasNextPage(html),
+            totalFilms = Regex("""A list of ([\d,]+) films?""").find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull(),
+        )
+    }
+
+    /**
+     * Lists of a member, `/<user>/lists/[page/N/]` (verified Nov 2026): `<article class="list-summary …">` with
+     * `<h2 class="name prettify"><a href="/<user>/list/<slug>/">Name</a>` and `<span class="value">12&nbsp;films</span>`.
+     */
+    fun parseMemberLists(html: String): List<LetterboxdListSummary> =
+        html.split("<article class=\"list-summary").drop(1).mapNotNull { chunk ->
+            val link = Regex("""<h2 class="name[^"]*">\s*<a href="/([A-Za-z0-9_]+)/list/([A-Za-z0-9_-]+)/"[^>]*>([^<]*)</a>""")
+                .find(chunk) ?: return@mapNotNull null
+            val (owner, slug, name) = link.destructured
+            LetterboxdListSummary(
+                ref = LetterboxdListRef(owner.lowercase(), slug.lowercase()),
+                title = decodeEntities(name).trim().ifEmpty { slug },
+                filmCount = Regex("""<span class="value">([\d,]+)(?:&nbsp;|\s)films?</span>""").find(chunk)
+                    ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull(),
+            )
+        }.distinctBy { it.ref.key }
+
+    private fun metaProperty(html: String, property: String): String? =
+        Regex("""<meta property="$property" content="([^"]*)"""").find(html)?.groupValues?.get(1)
+
     /** Usernames from `/<user>/following/page/N/`. */
     fun parseFollowingPage(html: String): List<String> =
         Regex("""<a[^>]*class="[^"]*\bname\b[^"]*"[^>]*href="/([A-Za-z0-9_]+)/"""").findAll(html)

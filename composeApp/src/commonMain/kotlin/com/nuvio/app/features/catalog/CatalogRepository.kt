@@ -6,6 +6,7 @@ import com.nuvio.app.features.collection.CollectionRepository
 import com.nuvio.app.features.collection.TmdbCollectionSourceResolver
 import com.nuvio.app.features.collection.catalogRouteKey
 import com.nuvio.app.features.library.LibraryRepository
+import com.nuvio.app.features.letterboxd.LetterboxdListsCatalog
 import com.nuvio.app.features.servers.ServerCatalog
 import com.nuvio.app.features.servers.serverMessage
 import com.nuvio.app.features.home.HomeCatalogSettingsRepository
@@ -157,6 +158,7 @@ object CatalogRepository {
                     )
 
                     is CatalogTarget.Server -> ServerCatalog.page(target, skip = requestedSkip)
+                    is LetterboxdListCatalogTarget -> LetterboxdListsCatalog.page(target, skip = requestedSkip)
 
                     is CatalogTarget.Library -> error(getString(Res.string.catalog_load_failed))
                 }.withUnreleasedFilter(request.hideUnreleasedContent)

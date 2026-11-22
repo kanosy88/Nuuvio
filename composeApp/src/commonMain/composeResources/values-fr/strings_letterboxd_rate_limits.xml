@@ -23,4 +23,8 @@
     <string name="letterboxd_rl_journal_batch">Journal : films identifiés par actualisation</string>
     <string name="letterboxd_rl_journal_resolve_gap">Journal : délai entre les recherches de films</string>
     <string name="letterboxd_rl_journal_min_refresh">Journal : délai minimal entre actualisations automatiques</string>
+    <string name="letterboxd_rl_lists_page_gap">Listes : délai entre les pages de liste</string>
+    <string name="letterboxd_rl_lists_batch">Listes : films identifiés par actualisation / page « Tout voir »</string>
+    <string name="letterboxd_rl_lists_resolve_gap">Listes : délai entre les recherches de films</string>
+    <string name="letterboxd_rl_lists_min_auto">Listes : délai minimal entre actualisations automatiques</string>
 </resources>
