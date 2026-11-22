@@ -1,5 +1,6 @@
 package com.nuvio.app.features.updater
 
+import com.nuvio.app.core.build.NuuvioIdentity
 import com.nuvio.app.core.build.AppVersionConfig
 import com.nuvio.app.core.storage.DesktopStorage
 import kotlinx.coroutines.Dispatchers
@@ -53,17 +54,17 @@ actual object AppUpdaterPlatform {
         get() = currentOs != DesktopUpdaterOs.UNKNOWN && linuxInstallMethod != LinuxInstallMethod.FLATPAK
 
     actual val releaseSource: AppUpdateReleaseSource = AppUpdateReleaseSource(
-        owner = "NuvioMedia",
-        repo = "NuvioDesktop",
+        owner = NuuvioIdentity.GITHUB_OWNER,
+        repo = NuuvioIdentity.GITHUB_REPO,
         channelBranch = null,
         includePrereleases = true,
-        userAgent = "NuvioDesktop",
+        userAgent = NuuvioIdentity.APP_NAME,
     )
 
     actual val assetSelector: AppUpdateAssetSelector
         get() = currentOs.assetSelector(linuxInstallMethod)
 
-    actual val currentVersionName: String = AppVersionConfig.DESKTOP_VERSION_NAME
+    actual val currentVersionName: String = NuuvioIdentity.updaterVersionName(AppVersionConfig.DESKTOP_VERSION_NAME)
 
     actual fun getSupportedAbis(): List<String> = emptyList()
 

@@ -1,5 +1,6 @@
 package com.nuvio.app.features.settings
 
+import com.nuvio.app.core.build.NuuvioIdentity
 import com.nuvio.app.core.storage.DesktopStorage
 import com.nuvio.app.features.player.desktop.DesktopHostOs
 import java.nio.file.Files
@@ -44,7 +45,7 @@ internal actual object AppIconPlatform {
             runCatching {
                 Thread.sleep(900)
                 val appHome = System.getProperty("compose.application.home")?.let { Paths.get(it) }
-                val installedLauncher = appHome?.parent?.resolve("Nuvio.exe")
+                val installedLauncher = appHome?.parent?.resolve("${NuuvioIdentity.APP_NAME}.exe")
                 val parentLauncher = ProcessHandle.current().parent().orElse(null)?.info()?.command()?.orElse(null)?.let { Paths.get(it) }
                 val currentLauncher = ProcessHandle.current().info().command().orElse(null)?.let { Paths.get(it) }
                 val launcher = sequenceOf(installedLauncher, parentLauncher, currentLauncher).filterNotNull().firstOrNull(Files::isRegularFile)

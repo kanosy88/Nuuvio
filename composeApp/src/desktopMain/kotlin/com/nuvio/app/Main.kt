@@ -1,5 +1,6 @@
 package com.nuvio.app
 
+import com.nuvio.app.core.build.NuuvioIdentity
 import com.nuvio.app.features.autosync.AutoSyncPreferencesDesktop
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -136,7 +137,7 @@ fun main(args: Array<String>) {
 
         SwingWindow(
             onCloseRequest = closeApplication,
-            title = if (smokePlayerUrl == null) "Nuvio" else "Nuvio Player Smoke",
+            title = if (smokePlayerUrl == null) NuuvioIdentity.APP_NAME else "Nuvio Player Smoke",
             state = windowState,
             icon = painterResource(appIconState.selected.transparentPreviewResource),
             init = ::configureMacosWindowBeforePeer,

@@ -15,11 +15,11 @@ internal object DesktopStorage {
     private val stores = mutableMapOf<String, Store>()
 
     val rootDir: Path by lazy {
-        resolveAppDataDir().also { Files.createDirectories(it) }
+        NuuvioDataDirs.appData(resolveAppDataDir()).also { Files.createDirectories(it) }
     }
 
     val cacheDir: Path by lazy {
-        resolveCacheDir().also { Files.createDirectories(it) }
+        NuuvioDataDirs.cache(resolveCacheDir()).also { Files.createDirectories(it) }
     }
 
     fun store(name: String): Store = synchronized(stores) {

@@ -1,5 +1,6 @@
 package com.nuvio.app.features.settings
 
+import com.nuvio.app.core.build.NuuvioIdentity
 import com.nuvio.app.features.player.desktop.DesktopHostOs
 import java.nio.file.Files
 import java.nio.file.Path
@@ -22,7 +23,7 @@ internal object WindowsAppShortcutIconUpdater {
         runCatching {
             val resource = "icons/app-icon-${icon.key}-transparent.ico"
             val localAppData = knownFolder("LocalApplicationData") ?: return@runCatching
-            val iconDirectory = localAppData.resolve("Nuvio/icons")
+            val iconDirectory = localAppData.resolve("${NuuvioIdentity.APP_NAME}/icons")
             Files.createDirectories(iconDirectory)
             val iconFile = iconDirectory.resolve("app-icon-${icon.key}-transparent.ico")
             Thread.currentThread().contextClassLoader.getResourceAsStream(resource)?.use { input ->
@@ -49,18 +50,18 @@ internal object WindowsAppShortcutIconUpdater {
         val commonDesktop = knownFolder("CommonDesktopDirectory")
         val commonPrograms = knownFolder("CommonPrograms")
 
-        desktop?.let { yield(it.resolve("Nuvio.lnk")) }
+        desktop?.let { yield(it.resolve("${NuuvioIdentity.APP_NAME}.lnk")) }
         programs?.let {
-            yield(it.resolve("Nuvio.lnk"))
-            yield(it.resolve("Nuvio/Nuvio.lnk"))
+            yield(it.resolve("${NuuvioIdentity.APP_NAME}.lnk"))
+            yield(it.resolve("${NuuvioIdentity.APP_NAME}/${NuuvioIdentity.APP_NAME}.lnk"))
         }
         applicationData?.let {
-            yield(it.resolve("Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/Nuvio.lnk"))
+            yield(it.resolve("Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/${NuuvioIdentity.APP_NAME}.lnk"))
         }
-        commonDesktop?.let { yield(it.resolve("Nuvio.lnk")) }
+        commonDesktop?.let { yield(it.resolve("${NuuvioIdentity.APP_NAME}.lnk")) }
         commonPrograms?.let {
-            yield(it.resolve("Nuvio/Nuvio.lnk"))
-            yield(it.resolve("Nuvio.lnk"))
+            yield(it.resolve("${NuuvioIdentity.APP_NAME}/${NuuvioIdentity.APP_NAME}.lnk"))
+            yield(it.resolve("${NuuvioIdentity.APP_NAME}.lnk"))
         }
     }
 
