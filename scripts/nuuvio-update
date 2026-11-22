@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# nuuvio-update — met à jour Nuuvio sur ce Mac (voir README-NUUVIO.md).
+#
+# 1. lance le workflow GitHub « Nuuvio sync and release » du fork (merge du dernier tag upstream dans perso,
+#    tests, builds, Release), attend la fin ;
+# 2. télécharge le DMG de la Release pour l'architecture de ce Mac et installe Nuuvio.app.
+#
+# Usage : nuuvio-update [--tag <tag upstream>] [--no-build] [--release <tag release>] [--intel] [--help]
+#   --tag <tag>       merger ce tag upstream au lieu de la dernière release upstream
+#   --no-build        ne lance pas de build : installe la dernière Release existante
+#   --release <tag>   avec --no-build : installe cette Release (ex. nuuvio-0.1.37-alpha-1)
+#   --intel           construit aussi le DMG Intel (automatique sur un Mac Intel)
+# Variables : NUUVIO_REPO (défaut kanosy88/Nuuvio), NUUVIO_INSTALL_DIR (défaut /Applications, sinon ~/Applications).
+set -euo pipefail
+
+REPO="${NUUVIO_REPO:-kanosy88/Nuuvio}"
+WORKFLOW="nuuvio-release.yml"
+BRANCH="perso"
+BUNDLE_ID="io.github.kanosy88.nuuvio"
+APP_NAME="Nuuvio.app"
+
+upstream_tag=""
+release_tag=""
+build=1
+intel=0
+
+die() { printf '\033[31mnuuvio-update : %s\033[0m\n' "$*" >&2; exit 1; }
+info() { printf '\033[36m==>\033[0m %s\n' "$*"; }
+
+while (($#)); do
+    case "$1" in
+        --tag) upstream_tag="${2:?--tag demande une valeur}"; shift 2 ;;
+        --release) release_tag="${2:?--release demande une valeur}"; shift 2 ;;
+        --no-build) build=0; shift ;;
+        --intel) intel=1; shift ;;
+        -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) die "option inconnue : $1 (voir --help)" ;;
+    esac
+done
+
+[[ "$(uname -s)" == "Darwin" ]] || die "ce script est prévu pour macOS."
+command -v gh >/dev/null || die "GitHub CLI absent : brew install gh && gh auth login"
+gh auth status >/dev/null 2>&1 || die "GitHub CLI non connecté : gh auth login"
+
+case "$(uname -m)" in
+    arm64) arch="arm64" ;;
+    x86_64) arch="x86_64"; intel=1 ;;
+    *) die "architecture non gérée : $(uname -m)" ;;
+esac
+
+work="$(mktemp -d "${TMPDIR:-/tmp}/nuuvio-update.XXXXXX")"
+mountpoint="${work}/mnt"
+cleanup() {
+    if [[ -d "${mountpoint}" ]] && mount | grep -q " on ${mountpoint} "; then
+        hdiutil detach -quiet "${mountpoint}" || hdiutil detach -quiet -force "${mountpoint}" || true
+    fi
+    rm -rf "${work}"
+}
+trap cleanup EXIT
+
+if ((build)); then
+    previous_id="$(gh run list --repo "${REPO}" --workflow "${WORKFLOW}" --limit 1 --json databaseId --jq '.[0].databaseId // 0')"
+    args=(--repo "${REPO}" --ref "${BRANCH}" -f "macos_intel=$( ((intel)) && echo true || echo false )")
+    [[ -n "${upstream_tag}" ]] && args+=(-f "upstream_tag=${upstream_tag}")
+    info "Lancement du workflow ${WORKFLOW} sur ${REPO} (${upstream_tag:-dernier tag upstream})…"
+    gh workflow run "${WORKFLOW}" "${args[@]}"
+
+    run_id=""
+    for _ in $(seq 1 30); do
+        sleep 4
+        run_id="$(gh run list --repo "${REPO}" --workflow "${WORKFLOW}" --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')"
+        [[ "${run_id}" != "0" && "${run_id}" != "${previous_id}" ]] && break
+        run_id=""
+    done
+    [[ -n "${run_id}" ]] || die "le run n'apparaît pas, voir https://github.com/${REPO}/actions"
+    run_url="https://github.com/${REPO}/actions/runs/${run_id}"
+    info "Run ${run_url} (≈ 20–40 min). Ctrl-C n'arrête que l'attente, pas le build."
+
+    if ! gh run watch "${run_id}" --repo "${REPO}" --exit-status --interval 30; then
+        failed_jobs="$(gh run view "${run_id}" --repo "${REPO}" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')"
+        if [[ "${failed_jobs}" == *"Merge upstream"* ]]; then
+            issue="$(gh issue list --repo "${REPO}" --state open --search '[nuuvio-sync] in:title' --limit 1 --json url --jq '.[0].url // ""' || true)"
+            die "CONFLIT de merge avec upstream : rien n'a été poussé ni publié. Détails : ${issue:-${run_url}}"
+        fi
+        die "le workflow a échoué (${failed_jobs:-voir le run}) : ${run_url}"
+    fi
+    run_number="$(gh run view "${run_id}" --repo "${REPO}" --json number --jq .number)"
+    release_tag="$(gh release list --repo "${REPO}" --limit 30 --json tagName --jq ".[] | select(.tagName | endswith(\"-${run_number}\")) | .tagName" | head -n 1)"
+    [[ -n "${release_tag}" ]] || die "build réussi mais Release introuvable (run ${run_number}) : https://github.com/${REPO}/releases"
+elif [[ -z "${release_tag}" ]]; then
+    release_tag="$(gh release view --repo "${REPO}" --json tagName --jq .tagName 2>/dev/null)" \
+        || die "aucune Release sur https://github.com/${REPO}/releases (lancez nuuvio-update sans --no-build)"
+fi
+
+info "Téléchargement du DMG ${arch} de ${release_tag}…"
+gh release download "${release_tag}" --repo "${REPO}" --pattern "Nuuvio-macOS-${arch}-*.dmg" --dir "${work}" \
+    || die "pas de DMG ${arch} dans ${release_tag}$( [[ ${arch} == x86_64 ]] && echo ' (relancez avec --intel)')"
+dmg="$(find "${work}" -maxdepth 1 -name '*.dmg' | head -n 1)"
+[[ -n "${dmg}" ]] || die "DMG introuvable après téléchargement"
+
+if pgrep -f "/${APP_NAME}/Contents/MacOS/Nuuvio" >/dev/null; then
+    info "Fermeture de Nuuvio…"
+    osascript -e "tell application id \"${BUNDLE_ID}\" to quit" >/dev/null 2>&1 || true
+    for _ in $(seq 1 20); do pgrep -f "/${APP_NAME}/Contents/MacOS/Nuuvio" >/dev/null || break; sleep 1; done
+    pgrep -f "/${APP_NAME}/Contents/MacOS/Nuuvio" >/dev/null && die "Nuuvio est toujours ouvert : fermez-le puis relancez."
+fi
+
+install_dir="${NUUVIO_INSTALL_DIR:-/Applications}"
+if [[ ! -w "${install_dir}" ]]; then
+    install_dir="${HOME}/Applications"
+    mkdir -p "${install_dir}"
+fi
+
+mkdir -p "${mountpoint}"
+hdiutil attach -quiet -nobrowse -readonly -noautoopen -mountpoint "${mountpoint}" "${dmg}"
+[[ -d "${mountpoint}/${APP_NAME}" ]] || die "${APP_NAME} absent du DMG"
+staging="${install_dir}/.${APP_NAME}.new"
+rm -rf "${staging}"
+ditto "${mountpoint}/${APP_NAME}" "${staging}"
+hdiutil detach -quiet "${mountpoint}"
+
+rm -rf "${install_dir:?}/${APP_NAME}"
+mv "${staging}" "${install_dir}/${APP_NAME}"
+# App non signée par Apple : retirer la quarantaine évite le blocage Gatekeeper au premier lancement.
+xattr -dr com.apple.quarantine "${install_dir}/${APP_NAME}" 2>/dev/null || true
+
+version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${install_dir}/${APP_NAME}/Contents/Info.plist" 2>/dev/null || echo '?')"
+info "Installé : ${install_dir}/${APP_NAME} (${release_tag}, paquet ${version})."
+echo "Lancer : open -a \"${install_dir}/${APP_NAME}\""
